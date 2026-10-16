@@ -1,6 +1,6 @@
 ﻿import logging
-import smtplib
-from email.mime.text import MIMEText
+
+import httpx
 
 from app.core.config import settings
 
@@ -8,8 +8,8 @@ logger = logging.getLogger(__name__)
 
 
 def _send_email(to: str, subject: str, body: str) -> None:
-    if not settings.EMAIL_ADDRESS or not settings.EMAIL_PASSWORD:
-        # Dev mode: print to console
+    # If no API key is set, log to console (dev fallback)
+    if not settings.BREVO_API_KEY:
         logger.warning(
             "\n=====================================\n"
             "[DEV EMAIL] To: %s\nSubject: %s\n%s\n"
@@ -20,16 +20,28 @@ def _send_email(to: str, subject: str, body: str) -> None:
         )
         return
 
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = settings.EMAIL_ADDRESS
-    msg["To"] = to
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "accept": "application/json",
+        "api-key": settings.BREVO_API_KEY,
+        "content-type": "application/json",
+    }
+    payload = {
+        "sender": {"email": settings.EMAIL_FROM, "name": "SmartFare"},
+        "to": [{"email": to}],
+        "subject": subject,
+        "htmlContent": f"<html><body><pre>{body}</pre></body></html>",
+    }
 
-    # Use SMTP_SSL for port 465
-    with smtplib.SMTP_SSL(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-        server.ehlo()
-        server.login(settings.EMAIL_ADDRESS, settings.EMAIL_PASSWORD)
-        server.sendmail(settings.EMAIL_ADDRESS, to, msg.as_string())
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            logger.info("Email sent to %s via Brevo", to)
+    except httpx.HTTPStatusError as e:
+        logger.error("Brevo API error: %s - %s", e.response.status_code, e.response.text)
+    except Exception as e:
+        logger.error("Unexpected error sending email: %s", e)
 
 
 def send_otp_email(to: str, otp: str, purpose: str = "registration") -> None:

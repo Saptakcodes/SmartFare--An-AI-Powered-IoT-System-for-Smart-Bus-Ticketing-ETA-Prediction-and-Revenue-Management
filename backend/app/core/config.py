@@ -1,5 +1,6 @@
-﻿from pydantic_settings import BaseSettings
-from functools import lru_cache
+﻿from functools import lru_cache
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -16,11 +17,12 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = ""
 
-    # Email (SMTP)
-    EMAIL_ADDRESS: str = ""
-    EMAIL_PASSWORD: str = ""
-    SMTP_HOST: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
+    # Email (Brevo API — replaces SMTP)
+    BREVO_API_KEY: str = ""
+    EMAIL_FROM: str = "noreply@smartfare.local"
+
+    # Device authentication for Raspberry Pi sync
+    DEVICE_API_KEY: str = ""
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -29,6 +31,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # don't crash if .env has extra keys
 
 
 @lru_cache
