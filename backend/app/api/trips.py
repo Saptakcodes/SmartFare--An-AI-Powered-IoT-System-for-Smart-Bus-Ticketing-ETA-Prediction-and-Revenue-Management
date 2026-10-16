@@ -11,6 +11,7 @@ from app.schemas.sync import (
 )
 from app.services.trip_service import end_trip, start_trip
 
+from app.api.device_deps import require_device_key
 
 router = APIRouter(prefix="/trips", tags=["trips"])
 
@@ -43,3 +44,34 @@ async def trips_end(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return result
+
+
+@router.get("/active")
+async def get_active_trip(
+    bus_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: str = Depends(require_device_key),
+):
+    """
+    Returns the current ACTIVE trip for a bus, or null.
+    Pi uses this on restart to reuse an open trip instead of failing.
+    """
+    from sqlalchemy import select as _select
+    from app.models import Trip as _Trip
+
+    trip = (
+        await db.execute(
+            _select(_Trip).where(
+                _Trip.bus_id == bus_id,
+                _Trip.status == "ACTIVE",
+            )
+        )
+    ).scalar_one_or_none()
+
+    if not trip:
+        return {"trip_id": None}
+    return {
+        "trip_id": trip.trip_id,
+        "route_id": trip.route_id,
+        "started_at": trip.started_at,
+    }
