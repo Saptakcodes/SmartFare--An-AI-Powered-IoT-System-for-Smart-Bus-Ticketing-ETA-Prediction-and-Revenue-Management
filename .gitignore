@@ -1,0 +1,54 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment files — NEVER commit real secrets
+.env
+.env.*
+!.env.example
+
+# Node / Expo
+node_modules/
+dist/
+build/
+.expo/
+.next/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+
+# Docker
+*.pid
+
+# Testing
+.coverage
+htmlcov/
+
+# Build outputs
+*.exe
+*.dll
+*.so
+*.dylib
