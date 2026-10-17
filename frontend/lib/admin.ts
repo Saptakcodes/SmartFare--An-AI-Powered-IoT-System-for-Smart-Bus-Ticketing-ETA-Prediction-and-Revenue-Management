@@ -109,3 +109,10 @@ export interface DeviceHealth {
 export function getDevices(): Promise<DeviceHealth[]> {
   return adminRequest<DeviceHealth[]>("/admin/dashboard/devices");
 }
+
+export function validateTicket(qr_token: string, trip_id: string): Promise<{ status: string, message: string, journey_id: string }> {
+  return adminRequest("/tickets/validate", {
+    method: "POST",
+    body: { qr_token, trip_id },
+  });
+}

@@ -10,6 +10,7 @@ import {
   PlusCircle,
   Search,
   Sparkles,
+  Ticket,
   TrendingUp,
   Wallet as WalletIcon,
 } from "lucide-react-native";
@@ -35,13 +36,8 @@ function getGreeting(): string {
   return "Winding down";
 }
 
-function getFirstName(user: {
-  full_name?: string | null;
-  email: string;
-}): string {
-  if (user.full_name) {
-    return user.full_name.split(" ")[0];
-  }
+function getFirstName(user: { full_name?: string | null; email: string }): string {
+  if (user.full_name) return user.full_name.split(" ")[0];
   return user.email.split("@")[0];
 }
 
@@ -51,7 +47,6 @@ export default function HomeScreen() {
   const { colors } = useTheme();
   const [greeting, setGreeting] = useState(getGreeting());
 
-  // Refresh greeting every minute in case user keeps screen open
   useEffect(() => {
     const id = setInterval(() => setGreeting(getGreeting()), 60000);
     return () => clearInterval(id);
@@ -70,6 +65,18 @@ export default function HomeScreen() {
       label: "Track bus",
       hint: "Live map",
       onPress: () => router.push("/map"),
+    },
+    {
+      icon: <Ticket color={colors.accent} size={22} strokeWidth={1.9} />,
+      label: "Buy Ticket",
+      hint: "New pass",
+      onPress: () => router.push("/ticket/buy"),
+    },
+    {
+      icon: <History color={colors.accent} size={22} strokeWidth={1.9} />,
+      label: "My Tickets",
+      hint: "QR History",
+      onPress: () => router.push("/tickets"),
     },
     {
       icon: <CreditCard color={colors.accent} size={22} strokeWidth={1.9} />,
@@ -102,23 +109,15 @@ export default function HomeScreen() {
             <Pressable
               onPress={() => router.push("/notifications")}
               hitSlop={10}
-              style={[
-                styles.iconBtn,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
+              style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
             >
               <Bell color={colors.textSecondary} size={18} />
-              <View
-                style={[styles.bellDot, { backgroundColor: colors.accent }]}
-              />
+              <View style={[styles.bellDot, { backgroundColor: colors.accent }]} />
             </Pressable>
             <Pressable
               onPress={onSignOut}
               hitSlop={10}
-              style={[
-                styles.iconBtn,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
+              style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
             >
               <LogOut color={colors.textSecondary} size={18} />
             </Pressable>
@@ -130,10 +129,7 @@ export default function HomeScreen() {
           <Text style={[typography.caption, { color: colors.textSecondary }]}>
             {greeting}
           </Text>
-          <Text
-            style={[typography.h1, { color: colors.textPrimary, marginTop: 2 }]}
-            numberOfLines={1}
-          >
+          <Text style={[typography.h1, { color: colors.textPrimary, marginTop: 2 }]} numberOfLines={1}>
             {getFirstName(user)}
           </Text>
         </View>
@@ -141,9 +137,7 @@ export default function HomeScreen() {
         {/* Wallet card */}
         <Pressable
           onPress={() => router.push("/wallet")}
-          style={({ pressed }) => [
-            { transform: [{ scale: pressed ? 0.985 : 1 }] },
-          ]}
+          style={({ pressed }) => [{ transform: [{ scale: pressed ? 0.985 : 1 }] }]}
         >
           <LinearGradient
             colors={colors.brandGradient as unknown as string[]}
@@ -154,74 +148,35 @@ export default function HomeScreen() {
             <View style={styles.walletTop}>
               <View style={styles.walletTopLeft}>
                 <WalletIcon color="#ffffffdd" size={18} />
-                <Text
-                  style={[
-                    typography.caption,
-                    { color: "#ffffffdd", marginLeft: spacing.sm },
-                  ]}
-                >
+                <Text style={[typography.caption, { color: "#ffffffdd", marginLeft: spacing.sm }]}>
                   Wallet balance
                 </Text>
               </View>
-              <View
-                style={[
-                  styles.trendPill,
-                  { backgroundColor: "rgba(255,255,255,0.18)" },
-                ]}
-              >
+              <View style={[styles.trendPill, { backgroundColor: "rgba(255,255,255,0.18)" }]}>
                 <TrendingUp color="#fff" size={11} />
-                <Text
-                  style={[
-                    typography.micro,
-                    { color: "#fff", marginLeft: 4 },
-                  ]}
-                >
-                  Active
-                </Text>
+                <Text style={[typography.micro, { color: "#fff", marginLeft: 4 }]}>Active</Text>
               </View>
             </View>
 
-            <Text
-              style={[
-                typography.display,
-                { color: "#fff", marginTop: spacing.md },
-              ]}
-            >
+            <Text style={[typography.display, { color: "#fff", marginTop: spacing.md }]}>
               ₹ <CountUp value={Number(user.balance)} />
             </Text>
 
             <View style={styles.walletActions}>
-              <Pressable
-                style={styles.walletAction}
-                onPress={() => router.push("/wallet")}
-              >
+              <Pressable style={styles.walletAction} onPress={() => router.push("/wallet")}>
                 <PlusCircle color="#ffffffdd" size={15} />
-                <Text
-                  style={[
-                    typography.caption,
-                    { color: "#ffffffdd", marginLeft: 6, fontWeight: "600" },
-                  ]}
-                >
+                <Text style={[typography.caption, { color: "#ffffffdd", marginLeft: 6, fontWeight: "600" }]}>
                   Top up
                 </Text>
               </Pressable>
-              <Pressable
-                style={styles.walletAction}
-                onPress={() => router.push("/journeys")}
-              >
+              <Pressable style={styles.walletAction} onPress={() => router.push("/journeys")}>
                 <History color="#ffffffdd" size={15} />
-                <Text
-                  style={[
-                    typography.caption,
-                    { color: "#ffffffdd", marginLeft: 6, fontWeight: "600" },
-                  ]}
-                >
+                <Text style={[typography.caption, { color: "#ffffffdd", marginLeft: 6, fontWeight: "600" }]}>
                   History
                 </Text>
               </Pressable>
             </View>
 
-            {/* Decorative circles */}
             <View style={styles.walletDeco1} />
             <View style={styles.walletDeco2} />
           </LinearGradient>
@@ -232,21 +187,12 @@ export default function HomeScreen() {
           onPress={() => router.push("/search")}
           style={({ pressed }) => [
             styles.searchBar,
-            {
-              backgroundColor: colors.surface,
-              borderColor: colors.border,
-              transform: [{ scale: pressed ? 0.99 : 1 }],
-            },
+            { backgroundColor: colors.surface, borderColor: colors.border, transform: [{ scale: pressed ? 0.99 : 1 }] },
             elevation.sm,
           ]}
         >
           <Search color={colors.textMuted} size={18} />
-          <Text
-            style={[
-              typography.body,
-              { color: colors.textMuted, marginLeft: spacing.sm, flex: 1 },
-            ]}
-          >
+          <Text style={[typography.body, { color: colors.textMuted, marginLeft: spacing.sm, flex: 1 }]}>
             Where to?
           </Text>
           <ArrowRight color={colors.textMuted} size={16} />
@@ -254,9 +200,7 @@ export default function HomeScreen() {
 
         {/* Quick actions */}
         <View style={styles.sectionHeader}>
-          <Text style={[typography.h3, { color: colors.textPrimary }]}>
-            Quick actions
-          </Text>
+          <Text style={[typography.h3, { color: colors.textPrimary }]}>Quick actions</Text>
           <Sparkles color={colors.accent} size={14} />
         </View>
 
@@ -267,41 +211,17 @@ export default function HomeScreen() {
               onPress={a.onPress}
               style={({ pressed }) => [
                 styles.tile,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  transform: [{ scale: pressed ? 0.96 : 1 }],
-                },
+                { backgroundColor: colors.surface, borderColor: colors.border, transform: [{ scale: pressed ? 0.96 : 1 }] },
                 elevation.sm,
               ]}
             >
-              <View
-                style={[
-                  styles.tileIcon,
-                  { backgroundColor: colors.accent + "14" },
-                ]}
-              >
+              <View style={[styles.tileIcon, { backgroundColor: colors.accent + "14" }]}>
                 {a.icon}
               </View>
-              <Text
-                style={[
-                  typography.bodySm,
-                  {
-                    color: colors.textPrimary,
-                    marginTop: spacing.sm,
-                    fontWeight: "600",
-                    textAlign: "center",
-                  },
-                ]}
-              >
+              <Text style={[typography.bodySm, { color: colors.textPrimary, marginTop: spacing.sm, fontWeight: "600", textAlign: "center" }]}>
                 {a.label}
               </Text>
-              <Text
-                style={[
-                  typography.micro,
-                  { color: colors.textMuted, marginTop: 2 },
-                ]}
-              >
+              <Text style={[typography.micro, { color: colors.textMuted, marginTop: 2 }]}>
                 {a.hint}
               </Text>
             </Pressable>
@@ -316,50 +236,19 @@ export default function HomeScreen() {
         >
           <View style={styles.statusRow}>
             <View style={{ flex: 1 }}>
-              <Text
-                style={[typography.caption, { color: colors.textSecondary }]}
-              >
-                Account status
-              </Text>
-              <Text
-                style={[
-                  typography.h3,
-                  { color: colors.textPrimary, marginTop: 3 },
-                ]}
-              >
+              <Text style={[typography.caption, { color: colors.textSecondary }]}>Account status</Text>
+              <Text style={[typography.h3, { color: colors.textPrimary, marginTop: 3 }]}>
                 {user.is_verified ? "Verified" : "Unverified"}
               </Text>
             </View>
             <View
               style={[
                 styles.statusPill,
-                {
-                  backgroundColor: user.is_verified
-                    ? colors.success + "22"
-                    : colors.warning + "22",
-                },
+                { backgroundColor: user.is_verified ? colors.success + "22" : colors.warning + "22" },
               ]}
             >
-              <View
-                style={[
-                  styles.dot,
-                  {
-                    backgroundColor: user.is_verified
-                      ? colors.success
-                      : colors.warning,
-                  },
-                ]}
-              />
-              <Text
-                style={[
-                  typography.caption,
-                  {
-                    color: user.is_verified ? colors.success : colors.warning,
-                    marginLeft: 6,
-                    fontWeight: "600",
-                  },
-                ]}
-              >
+              <View style={[styles.dot, { backgroundColor: user.is_verified ? colors.success : colors.warning }]} />
+              <Text style={[typography.caption, { color: user.is_verified ? colors.success : colors.warning, marginLeft: 6, fontWeight: "600" }]}>
                 {user.is_verified ? "Active" : "Pending"}
               </Text>
             </View>
@@ -371,125 +260,25 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingTop: spacing.sm,
-  },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingTop: spacing.sm },
   headerActions: { flexDirection: "row", gap: spacing.sm },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-  },
-  bellDot: {
-    position: "absolute",
-    top: 8,
-    right: 9,
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
+  iconBtn: { width: 36, height: 36, borderRadius: radii.md, borderWidth: 1, alignItems: "center", justifyContent: "center", position: "relative" },
+  bellDot: { position: "absolute", top: 8, right: 9, width: 6, height: 6, borderRadius: 3 },
   greeting: { marginTop: spacing.xl },
-  walletCard: {
-    marginTop: spacing.xl,
-    borderRadius: radii.xl,
-    padding: spacing.xl,
-    overflow: "hidden",
-    position: "relative",
-  },
-  walletTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
+  walletCard: { marginTop: spacing.xl, borderRadius: radii.xl, padding: spacing.xl, overflow: "hidden", position: "relative" },
+  walletTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   walletTopLeft: { flexDirection: "row", alignItems: "center" },
-  trendPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radii.pill,
-  },
-  walletActions: {
-    flexDirection: "row",
-    gap: spacing.lg,
-    marginTop: spacing.lg,
-    zIndex: 2,
-  },
+  trendPill: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radii.pill },
+  walletActions: { flexDirection: "row", gap: spacing.lg, marginTop: spacing.lg, zIndex: 2 },
   walletAction: { flexDirection: "row", alignItems: "center" },
-  walletDeco1: {
-    position: "absolute",
-    right: -40,
-    top: -40,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: "rgba(255,255,255,0.06)",
-  },
-  walletDeco2: {
-    position: "absolute",
-    right: 40,
-    bottom: -60,
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "rgba(255,255,255,0.04)",
-  },
-  searchBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderRadius: radii.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    marginTop: spacing.xl,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.xxl,
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    rowGap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  tile: {
-    width: "48%",
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.sm,
-  },
-  tileIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  statusRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  statusPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: radii.pill,
-  },
+  walletDeco1: { position: "absolute", right: -40, top: -40, width: 140, height: 140, borderRadius: 70, backgroundColor: "rgba(255,255,255,0.06)" },
+  walletDeco2: { position: "absolute", right: 40, bottom: -60, width: 120, height: 120, borderRadius: 60, backgroundColor: "rgba(255,255,255,0.04)" },
+  searchBar: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderRadius: radii.lg, paddingHorizontal: spacing.lg, paddingVertical: spacing.lg, marginTop: spacing.xl },
+  sectionHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginTop: spacing.xxl },
+  grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: spacing.md, marginTop: spacing.lg },
+  tile: { width: "48%", borderRadius: radii.lg, borderWidth: 1, alignItems: "center", justifyContent: "center", paddingVertical: spacing.lg, paddingHorizontal: spacing.sm },
+  tileIcon: { width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" },
+  statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  statusPill: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radii.pill },
   dot: { width: 6, height: 6, borderRadius: 3 },
 });

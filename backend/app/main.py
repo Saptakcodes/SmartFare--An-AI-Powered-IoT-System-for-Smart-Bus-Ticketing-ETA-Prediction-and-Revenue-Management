@@ -5,6 +5,7 @@ from app.api import admin_auth, auth, passenger, sync, trips
 from app.core.config import settings
 from app.api import admin_auth, admin_dashboard, auth, passenger, sync, trips
 from app.api import admin_auth, admin_dashboard, auth, notifications, passenger, sync, trips
+from app.api import admin_auth, admin_dashboard, auth, notifications, passenger, sync, trips, tickets
 
 app = FastAPI(title=settings.APP_NAME, version="0.1.0")
 
@@ -23,6 +24,7 @@ app.include_router(sync.router)
 app.include_router(passenger.router)
 app.include_router(admin_dashboard.router)
 app.include_router(notifications.router)
+app.include_router(tickets.router)
 
 @app.get("/health")
 async def health():

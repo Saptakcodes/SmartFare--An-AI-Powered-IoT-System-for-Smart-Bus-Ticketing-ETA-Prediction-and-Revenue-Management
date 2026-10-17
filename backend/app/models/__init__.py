@@ -17,6 +17,7 @@ from app.models.transaction import Transaction
 from app.models.trip import Trip
 from app.models.user import User
 from app.models.notification import Notification
+from app.models.digital_ticket import DigitalTicket
 
 __all__ = [
     "User",
@@ -39,4 +40,5 @@ __all__ = [
     "DeviceStatus",
     "ETAPrediction",
     "Notification",
+    DigitalTicket,
 ]

@@ -3,7 +3,7 @@ import { Home, MapPin, Search, User, Wallet } from "lucide-react-native";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
+import { Ticket } from "lucide-react-native";
 import { Logo } from "../../components/ui/Logo";
 import { useLayout } from "../../lib/useLayout";
 import { useTheme } from "../../theme/ThemeProvider";
@@ -147,6 +147,15 @@ export default function AppLayout() {
           title: "Map",
           tabBarIcon: ({ color, focused }) => (
             <MapPin color={color} size={22} strokeWidth={focused ? 2.2 : 1.8} />
+          ),
+        }}
+      />
+            <Tabs.Screen
+        name="tickets"
+        options={{
+          title: "Tickets",
+          tabBarIcon: ({ color, focused }) => (
+            <Ticket color={color} size={22} strokeWidth={focused ? 2.2 : 1.8} />
           ),
         }}
       />

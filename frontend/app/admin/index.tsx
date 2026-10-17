@@ -8,6 +8,7 @@ import {
   DollarSign,
   Ticket,
   Users,
+  ScanLine,
 } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
@@ -112,6 +113,35 @@ export default function AdminOverviewScreen() {
           ))}
         </View>
       </View>
+
+      {/* CONDUCTOR PORTAL SHORTCUT */}
+      <Pressable 
+        onPress={() => {
+          if (Platform.OS === "web") {
+            window.open("/conductor", "_blank");
+          } else {
+            // In case they open admin on phone, just navigate
+            import("expo-router").then(m => m.router.push("/conductor"));
+          }
+        }} 
+        style={{ 
+          marginTop: spacing.xl, 
+          backgroundColor: colors.accent + "15", 
+          paddingVertical: spacing.md, 
+          paddingHorizontal: spacing.lg,
+          borderRadius: radii.md, 
+          alignSelf: "flex-start",
+          flexDirection: "row",
+          alignItems: "center",
+          borderWidth: 1,
+          borderColor: colors.accent + "33"
+        }}
+      >
+        <ScanLine color={colors.accent} size={18} />
+        <Text style={{ color: colors.accent, fontWeight: "700", marginLeft: spacing.sm }}>
+          Open Conductor Scanner Portal ↗
+        </Text>
+      </Pressable>
 
       {error ? (
         <Text style={[typography.bodySm, { color: colors.danger, marginTop: spacing.lg }]}>
