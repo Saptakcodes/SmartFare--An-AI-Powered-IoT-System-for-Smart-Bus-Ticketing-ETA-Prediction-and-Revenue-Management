@@ -1,6 +1,7 @@
 ﻿import { Eye, EyeOff } from "lucide-react-native";
 import React, { forwardRef, useState } from "react";
 import {
+  Platform, // <-- ADD THIS IMPORT
   Pressable,
   StyleSheet,
   Text,
@@ -66,6 +67,7 @@ export const TextInput = forwardRef<RNTextInput, Props>(function TextInput(
             styles.field,
             typography.body,
             { color: colors.textPrimary },
+            Platform.OS === "web" && { outlineStyle: "none" as any }, // <-- THIS FIXES THE WHITE BOX
             style,
           ]}
         />

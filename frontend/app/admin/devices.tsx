@@ -10,6 +10,7 @@ import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,7 +20,7 @@ import {
 import { Card } from "../../components/ui/Card";
 import { DeviceHealth, getDevices } from "../../lib/admin";
 import { useTheme } from "../../theme/ThemeProvider";
-import { radii, spacing } from "../../theme/tokens";
+import { elevation, radii, spacing } from "../../theme/tokens";
 import { typography } from "../../theme/typography";
 
 export default function AdminDevicesScreen() {
@@ -63,27 +64,17 @@ export default function AdminDevicesScreen() {
     <ScrollView
       style={{ backgroundColor: colors.bg }}
       contentContainerStyle={styles.container}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
     >
       <View style={styles.headerRow}>
         <View style={{ flex: 1 }}>
-          <Text style={[typography.h1, { color: colors.textPrimary }]}>
-            Devices
-          </Text>
-          <Text
-            style={[
-              typography.body,
-              { color: colors.textSecondary, marginTop: spacing.xs },
-            ]}
-          >
+          <Text style={[typography.h1, { color: colors.textPrimary }]}>Devices</Text>
+          <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.xs }]}>
             Raspberry Pi health and connectivity
           </Text>
         </View>
-        <Pressable onPress={onRefresh} hitSlop={10} disabled={refreshing}>
-          {refreshing ? (
-            <ActivityIndicator color={colors.accent} />
-          ) : (
-            <RefreshCw color={colors.textSecondary} size={20} />
-          )}
+        <Pressable onPress={onRefresh} hitSlop={10} disabled={refreshing} style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          {refreshing ? <ActivityIndicator size="small" color={colors.accent} /> : <RefreshCw color={colors.textSecondary} size={18} />}
         </Pressable>
       </View>
 
@@ -94,14 +85,7 @@ export default function AdminDevicesScreen() {
       </View>
 
       {error ? (
-        <Text
-          style={[
-            typography.bodySm,
-            { color: colors.danger, marginTop: spacing.lg },
-          ]}
-        >
-          {error}
-        </Text>
+        <Text style={[typography.bodySm, { color: colors.danger, marginTop: spacing.lg }]}>{error}</Text>
       ) : null}
 
       {loading ? (
@@ -109,54 +93,29 @@ export default function AdminDevicesScreen() {
           <ActivityIndicator color={colors.accent} />
         </View>
       ) : devices.length === 0 ? (
-        <Card style={{ marginTop: spacing.xl }}>
-          <View style={styles.emptyRow}>
-            <Activity color={colors.textMuted} size={24} />
-            <Text
-              style={[
-                typography.body,
-                {
-                  color: colors.textSecondary,
-                  textAlign: "center",
-                  marginTop: spacing.md,
-                },
-              ]}
-            >
-              No devices have checked in yet. Raspberry Pi devices will appear
-              here after they call /sync/device/heartbeat.
-            </Text>
-          </View>
+        <Card style={{ marginTop: spacing.xl, paddingVertical: spacing.xxxl, alignItems: "center" }}>
+          <Activity color={colors.textMuted} size={32} />
+          <Text style={[typography.body, { color: colors.textSecondary, textAlign: "center", marginTop: spacing.md }]}>
+            No devices have checked in yet.{"\n"}
+            Raspberry Pi devices will appear here after they call /sync/device/heartbeat.
+          </Text>
         </Card>
       ) : (
-        devices.map((d) => <DeviceCard key={d.device_id} device={d} />)
+        <View style={styles.grid}>
+          {devices.map((d) => (
+            <DeviceCard key={d.device_id} device={d} />
+          ))}
+        </View>
       )}
     </ScrollView>
   );
 }
 
-function StatChip({
-  label,
-  count,
-  color,
-}: {
-  label: string;
-  count: number;
-  color: string;
-}) {
+function StatChip({ label, count, color }: { label: string; count: number; color: string }) {
   return (
-    <View
-      style={[
-        styles.chip,
-        { backgroundColor: color + "22", borderColor: color + "44" },
-      ]}
-    >
+    <View style={[styles.chip, { backgroundColor: color + "15", borderColor: color + "33" }]}>
       <View style={[styles.dot, { backgroundColor: color }]} />
-      <Text
-        style={[
-          typography.caption,
-          { color, marginLeft: spacing.sm, fontWeight: "600" },
-        ]}
-      >
+      <Text style={[typography.caption, { color, marginLeft: spacing.sm, fontWeight: "600" }]}>
         {label} · {count}
       </Text>
     </View>
@@ -165,156 +124,91 @@ function StatChip({
 
 function DeviceCard({ device }: { device: DeviceHealth }) {
   const { colors } = useTheme();
-  const statusColor =
-    device.status === "online"
-      ? colors.success
-      : device.status === "stale"
-      ? colors.warning
-      : colors.textMuted;
+  const statusColor = device.status === "online" ? colors.success : device.status === "stale" ? colors.warning : colors.textMuted;
 
   return (
-    <Card style={{ marginTop: spacing.lg }}>
+    <Card style={[styles.deviceCard, elevation.sm]}>
       <View style={styles.deviceHeader}>
         <View style={{ flex: 1 }}>
-          <Text
-            style={[typography.h3, { color: colors.textPrimary }]}
-            numberOfLines={1}
-          >
+          <Text style={[typography.h3, { color: colors.textPrimary }]} numberOfLines={1}>
             {device.device_id}
           </Text>
-          <Text
-            style={[
-              typography.caption,
-              { color: colors.textSecondary, marginTop: 2 },
-            ]}
-          >
+          <Text style={[typography.caption, { color: colors.textSecondary, marginTop: 2 }]}>
             {device.bus_id ? `Bus ${device.bus_id}` : "Not assigned"}
             {device.app_version ? ` · v${device.app_version}` : ""}
           </Text>
         </View>
-        <View
-          style={[
-            styles.statusPill,
-            { backgroundColor: statusColor + "22" },
-          ]}
-        >
+        <View style={[styles.statusPill, { backgroundColor: statusColor + "15" }]}>
           <View style={[styles.dot, { backgroundColor: statusColor }]} />
-          <Text
-            style={[
-              typography.micro,
-              { color: statusColor, marginLeft: 4 },
-            ]}
-          >
+          <Text style={[typography.micro, { color: statusColor, marginLeft: 4, fontWeight: "600" }]}>
             {device.status.toUpperCase()}
           </Text>
         </View>
       </View>
 
       <View style={styles.signals}>
-        <Signal
-          label="GPS"
-          ok={device.gps_ok}
-          Icon={Satellite}
-          colors={colors}
-        />
-        <Signal
-          label="RFID"
-          ok={device.rfid_ok}
-          Icon={Activity}
-          colors={colors}
-        />
-        <Signal
-          label="Network"
-          ok={device.network_ok}
-          Icon={device.network_ok ? Wifi : WifiOff}
-          colors={colors}
-        />
+        <Signal label="GPS" ok={device.gps_ok} Icon={Satellite} colors={colors} />
+        <Signal label="RFID" ok={device.rfid_ok} Icon={Activity} colors={colors} />
+        <Signal label="Network" ok={device.network_ok} Icon={device.network_ok ? Wifi : WifiOff} colors={colors} />
       </View>
 
-      <Text
-        style={[
-          typography.micro,
-          { color: colors.textMuted, marginTop: spacing.lg },
-        ]}
-      >
-        {device.minutes_since_seen != null
-          ? device.minutes_since_seen < 1
-            ? "Last seen: just now"
-            : `Last seen: ${device.minutes_since_seen} min ago`
-          : "Never seen"}
-      </Text>
+      <View style={[styles.cardFooter, { borderTopColor: colors.border }]}>
+        <Text style={[typography.micro, { color: colors.textMuted }]}>
+          Last seen: <Text style={{ color: colors.textPrimary, fontWeight: "500" }}>
+            {device.minutes_since_seen != null
+              ? device.minutes_since_seen < 1 ? "Just now" : `${device.minutes_since_seen} min ago`
+              : "Never"}
+          </Text>
+        </Text>
+      </View>
     </Card>
   );
 }
 
-function Signal({
-  label,
-  ok,
-  Icon,
-  colors,
-}: {
-  label: string;
-  ok: boolean | null;
-  Icon: any;
-  colors: any;
-}) {
-  const color =
-    ok === true ? colors.success : ok === false ? colors.danger : colors.textMuted;
+function Signal({ label, ok, Icon, colors }: { label: string; ok: boolean | null; Icon: any; colors: any }) {
+  const color = ok === true ? colors.success : ok === false ? colors.danger : colors.textMuted;
+  const bg = ok === true ? colors.success + "15" : ok === false ? colors.danger + "15" : colors.surface;
+
   return (
-    <View style={styles.signal}>
+    <View style={[styles.signal, { backgroundColor: bg, borderColor: color + "33" }]}>
       <Icon color={color} size={16} />
-      <Text
-        style={[
-          typography.micro,
-          { color, marginTop: 4, fontWeight: "600" },
-        ]}
-      >
-        {label}
-      </Text>
+      <Text style={[typography.micro, { color, marginTop: 4, fontWeight: "600" }]}>{label}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: spacing.xxl,
-    paddingVertical: spacing.xxl,
-    paddingBottom: spacing.xxxl,
-  },
-  headerRow: {
+  container: { paddingHorizontal: spacing.xxl, paddingVertical: spacing.xxl, paddingBottom: spacing.xxxl },
+  headerRow: { flexDirection: "row", alignItems: "flex-start", gap: spacing.lg },
+  iconBtn: { width: 38, height: 38, borderRadius: radii.md, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  
+  chipsRow: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.xl, flexWrap: "wrap" },
+  chip: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radii.pill, borderWidth: 1 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  
+  center: { alignItems: "center", marginTop: spacing.xxxl },
+  
+  grid: {
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.lg,
-  },
-  chipsRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-    marginTop: spacing.xl,
     flexWrap: "wrap",
+    gap: spacing.lg,
+    marginTop: spacing.xl,
   },
-  chip: {
-    flexDirection: "row",
+  deviceCard: {
+    flex: 1,
+    minWidth: 300,
+    borderRadius: radii.xl,
+  },
+  deviceHeader: { flexDirection: "row", alignItems: "center" },
+  statusPill: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, paddingVertical: 4, borderRadius: radii.pill },
+  
+  signals: { flexDirection: "row", gap: spacing.md, marginTop: spacing.xl },
+  signal: {
+    flex: 1,
     alignItems: "center",
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: radii.pill,
+    paddingVertical: spacing.md,
+    borderRadius: radii.md,
     borderWidth: 1,
   },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  center: { alignItems: "center", marginTop: spacing.xxxl },
-  emptyRow: { alignItems: "center", paddingVertical: spacing.xl },
-  deviceHeader: { flexDirection: "row", alignItems: "center" },
-  statusPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.md,
-    paddingVertical: 4,
-    borderRadius: radii.pill,
-  },
-  signals: {
-    flexDirection: "row",
-    gap: spacing.xxl,
-    marginTop: spacing.lg,
-  },
-  signal: { alignItems: "center" },
+  cardFooter: { marginTop: spacing.lg, paddingTop: spacing.md, borderTopWidth: 1 },
 });

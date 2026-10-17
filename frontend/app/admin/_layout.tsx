@@ -5,7 +5,6 @@ import {
   Bus,
   LayoutDashboard,
   LogOut,
-  Route as RouteIcon,
   Settings,
   Ticket,
 } from "lucide-react-native";
@@ -58,9 +57,7 @@ export default function AdminLayout() {
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: colors.bg }]}>
-        <Text style={[typography.body, { color: colors.textSecondary }]}>
-          Loading…
-        </Text>
+        <Text style={[typography.body, { color: colors.textSecondary }]}>Loading…</Text>
       </View>
     );
   }
@@ -69,7 +66,6 @@ export default function AdminLayout() {
     return <Redirect href="/admin/login" />;
   }
 
-  // Determine current page title for topbar
   const flat = NAV.flatMap((g) => g.items);
   const current = flat.find((item) =>
     item.href === "/admin"
@@ -88,11 +84,7 @@ export default function AdminLayout() {
 
   return (
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
-      <Sidebar
-        colors={colors}
-        onSignOut={signOut}
-        adminEmail={admin.email}
-      />
+      <Sidebar colors={colors} onSignOut={signOut} adminEmail={admin.email} />
       <View style={styles.contentCol}>
         <AdminTopBar title={pageTitle} adminEmail={admin.email} />
         <View style={styles.stackWrap}>
@@ -119,24 +111,11 @@ function Sidebar({
   const initials = adminEmail.split("@")[0].slice(0, 2).toUpperCase();
 
   return (
-    <View
-      style={[
-        styles.sidebar,
-        {
-          backgroundColor: colors.surface,
-          borderRightColor: colors.border,
-        },
-      ]}
-    >
+    <View style={[styles.sidebar, { backgroundColor: colors.surface, borderRightColor: colors.border }]}>
       {/* Brand */}
       <View style={styles.brandBlock}>
         <Logo size="sm" />
-        <Text
-          style={[
-            typography.tiny,
-            { color: colors.textMuted, marginTop: spacing.sm },
-          ]}
-        >
+        <Text style={[typography.tiny, { color: colors.textMuted, marginTop: spacing.sm }]}>
           ADMIN CONSOLE
         </Text>
       </View>
@@ -145,16 +124,7 @@ function Sidebar({
       <View style={styles.nav}>
         {NAV.map((group) => (
           <View key={group.section} style={styles.navGroup}>
-            <Text
-              style={[
-                typography.tiny,
-                {
-                  color: colors.textMuted,
-                  marginBottom: spacing.sm,
-                  paddingHorizontal: spacing.md,
-                },
-              ]}
-            >
+            <Text style={[typography.tiny, { color: colors.textMuted, marginBottom: spacing.sm, paddingHorizontal: spacing.md }]}>
               {group.section}
             </Text>
             {group.items.map((item) => {
@@ -172,17 +142,9 @@ function Sidebar({
                   ]}
                 >
                   {active ? (
-                    <View
-                      style={[
-                        styles.activeBar,
-                        { backgroundColor: colors.accent },
-                      ]}
-                    />
+                    <View style={[styles.activeBar, { backgroundColor: colors.accent }]} />
                   ) : null}
-                  <item.Icon
-                    color={active ? colors.accent : colors.textMuted}
-                    size={17}
-                  />
+                  <item.Icon color={active ? colors.accent : colors.textMuted} size={17} />
                   <Text
                     style={[
                       typography.bodySm,
@@ -205,44 +167,17 @@ function Sidebar({
       <View style={styles.spacer} />
 
       {/* Footer */}
-      <View
-        style={[
-          styles.footer,
-          {
-            borderTopColor: colors.border,
-            backgroundColor: colors.bg,
-          },
-        ]}
-      >
-        <View
-          style={[
-            styles.footerAvatar,
-            { backgroundColor: colors.primary + "22" },
-          ]}
-        >
-          <Text
-            style={[
-              typography.caption,
-              { color: colors.primary, fontWeight: "700" },
-            ]}
-          >
+      <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.bg }]}>
+        <View style={[styles.footerAvatar, { backgroundColor: colors.primary + "22" }]}>
+          <Text style={[typography.caption, { color: colors.primary, fontWeight: "700" }]}>
             {initials}
           </Text>
         </View>
         <View style={{ flex: 1, marginLeft: spacing.md }}>
-          <Text
-            style={[
-              typography.caption,
-              { color: colors.textPrimary, fontWeight: "600" },
-            ]}
-            numberOfLines={1}
-          >
+          <Text style={[typography.caption, { color: colors.textPrimary, fontWeight: "600" }]} numberOfLines={1}>
             {adminEmail.split("@")[0]}
           </Text>
-          <Text
-            style={[typography.micro, { color: colors.textMuted, marginTop: 1 }]}
-            numberOfLines={1}
-          >
+          <Text style={[typography.micro, { color: colors.textMuted, marginTop: 1 }]} numberOfLines={1}>
             {adminEmail}
           </Text>
         </View>
@@ -259,15 +194,8 @@ const styles = StyleSheet.create({
   contentCol: { flex: 1 },
   stackWrap: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  sidebar: {
-    width: 244,
-    borderRightWidth: 1,
-  },
-  brandBlock: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.xxl,
-    paddingBottom: spacing.xxl,
-  },
+  sidebar: { width: 260, borderRightWidth: 1 },
+  brandBlock: { paddingHorizontal: spacing.xl, paddingTop: spacing.xxl, paddingBottom: spacing.xxl },
   nav: { paddingHorizontal: spacing.md, gap: spacing.xl },
   navGroup: { gap: spacing.xs },
   navItem: {
@@ -288,17 +216,6 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 3,
   },
   spacer: { flex: 1 },
-  footer: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: spacing.lg,
-    borderTopWidth: 1,
-  },
-  footerAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  footer: { flexDirection: "row", alignItems: "center", padding: spacing.lg, borderTopWidth: 1 },
+  footerAvatar: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center" },
 });

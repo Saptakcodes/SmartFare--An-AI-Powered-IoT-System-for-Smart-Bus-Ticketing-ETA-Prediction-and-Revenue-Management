@@ -1,5 +1,5 @@
 ﻿import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
+import { ArrowLeft, MapPin, Navigation } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -50,10 +50,11 @@ export default function RouteDetailScreen() {
           <Text
             style={[
               typography.h2,
-              { color: colors.textPrimary, marginLeft: spacing.lg },
+              { color: colors.textPrimary, marginLeft: spacing.lg, flex: 1 },
             ]}
+            numberOfLines={1}
           >
-            {route?.name || "Route"}
+            {route?.name || "Route Details"}
           </Text>
         </View>
 
@@ -72,34 +73,91 @@ export default function RouteDetailScreen() {
           </Text>
         ) : route ? (
           <Card style={{ marginTop: spacing.xl }}>
-            {route.stops.map((s) => (
-              <View key={s.stop_id} style={styles.stopRow}>
-                <View
-                  style={[
-                    styles.dot,
-                    { backgroundColor: colors.accent, marginTop: 6 },
-                  ]}
-                />
-                <View style={{ marginLeft: spacing.md, flex: 1 }}>
-                  <Text
-                    style={[
-                      typography.bodyMedium,
-                      { color: colors.textPrimary },
-                    ]}
-                  >
-                    {s.name}
-                  </Text>
-                  <Text
-                    style={[
-                      typography.micro,
-                      { color: colors.textMuted, marginTop: 2 },
-                    ]}
-                  >
-                    Stop {s.seq} · {s.stop_id}
-                  </Text>
-                </View>
-              </View>
-            ))}
+            {/* Summary Header */}
+            <View style={styles.summaryRow}>
+              <Navigation color={colors.accent} size={16} />
+              <Text
+                style={[
+                  typography.bodySm,
+                  { color: colors.textSecondary, marginLeft: spacing.sm },
+                ]}
+              >
+                {route.stops.length} stops on this route
+              </Text>
+            </View>
+
+            {/* Subway-style Timeline */}
+            <View style={{ marginTop: spacing.xl }}>
+              {route.stops.map((s, index) => {
+                const isFirst = index === 0;
+                const isLast = index === route.stops.length - 1;
+
+                return (
+                  <View key={s.stop_id} style={styles.stopRow}>
+                    {/* Timeline Graphic */}
+                    <View style={styles.timelineCol}>
+                      <View
+                        style={[
+                          styles.dot,
+                          {
+                            backgroundColor: isFirst
+                              ? colors.success
+                              : isLast
+                              ? colors.danger
+                              : colors.accent,
+                            width: isFirst || isLast ? 12 : 8,
+                            height: isFirst || isLast ? 12 : 8,
+                            borderRadius: isFirst || isLast ? 6 : 4,
+                          },
+                        ]}
+                      />
+                      {!isLast && (
+                        <View
+                          style={[
+                            styles.line,
+                            { backgroundColor: colors.border },
+                          ]}
+                        />
+                      )}
+                    </View>
+
+                    {/* Stop Info */}
+                    <View
+                      style={[
+                        styles.stopInfo,
+                        { paddingBottom: isLast ? 0 : spacing.xxl },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          typography.bodyMedium,
+                          {
+                            color:
+                              isFirst || isLast
+                                ? colors.textPrimary
+                                : colors.textSecondary,
+                            fontWeight: isFirst || isLast ? "700" : "500",
+                          },
+                        ]}
+                      >
+                        {s.name}
+                      </Text>
+                      <View style={styles.stopMeta}>
+                        <MapPin color={colors.textMuted} size={10} />
+                        <Text
+                          style={[
+                            typography.micro,
+                            { color: colors.textMuted, marginLeft: 4 },
+                          ]}
+                        >
+                          {s.stop_id} · Stop {s.seq}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
           </Card>
         ) : null}
       </ScrollView>
@@ -115,6 +173,11 @@ const styles = StyleSheet.create({
   },
   header: { flexDirection: "row", alignItems: "center" },
   center: { alignItems: "center", marginTop: spacing.xxxl },
-  stopRow: { flexDirection: "row", paddingVertical: spacing.sm },
-  dot: { width: 8, height: 8, borderRadius: 4 },
+  summaryRow: { flexDirection: "row", alignItems: "center" },
+  stopRow: { flexDirection: "row" },
+  timelineCol: { width: 20, alignItems: "center" },
+  dot: { marginTop: 4 },
+  line: { width: 2, flex: 1, marginVertical: 4 },
+  stopInfo: { flex: 1, marginLeft: spacing.md },
+  stopMeta: { flexDirection: "row", alignItems: "center", marginTop: 4 },
 });

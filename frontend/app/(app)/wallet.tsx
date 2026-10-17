@@ -7,27 +7,31 @@ import {
   Clock,
   Plus,
   Wallet as WalletIcon,
+  X,
 } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { TextInput } from "../../components/ui/TextInput";
+import { CountUp } from "../../components/ui/CountUp";
 import { useAuth } from "../../contexts/AuthContext";
 import { Transaction, listTransactions, topUp } from "../../lib/wallet";
 import { useTheme } from "../../theme/ThemeProvider";
-import { radii, spacing } from "../../theme/tokens";
+import { elevation, radii, spacing } from "../../theme/tokens";
 import { typography } from "../../theme/typography";
 
 export default function WalletScreen() {
@@ -39,7 +43,6 @@ export default function WalletScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [showTopUp, setShowTopUp] = useState(false);
 
   const load = useCallback(async () => {
@@ -66,6 +69,9 @@ export default function WalletScreen() {
     await load();
   }
 
+  // Group transactions by date
+  const grouped = groupTransactionsByDate(transactions || []);
+
   return (
     <SafeAreaView style={[styles.flex, { backgroundColor: colors.bg }]}>
       <ScrollView
@@ -78,19 +84,22 @@ export default function WalletScreen() {
           />
         }
       >
-        <Text style={[typography.h1, { color: colors.textPrimary }]}>
-          Wallet
-        </Text>
-        <Text
-          style={[
-            typography.body,
-            { color: colors.textSecondary, marginTop: spacing.xs },
-          ]}
-        >
-          Manage your balance and view transactions
-        </Text>
+        <View style={styles.header}>
+          <Text style={[typography.h1, { color: colors.textPrimary }]}>
+            Wallet
+          </Text>
+          <Pressable
+            onPress={() => router.push("/card")}
+            style={[
+              styles.iconBtn,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <WalletIcon color={colors.textSecondary} size={18} />
+          </Pressable>
+        </View>
 
-        {/* Balance card */}
+        {/* Balance Card */}
         <LinearGradient
           colors={colors.brandGradient as unknown as string[]}
           start={{ x: 0, y: 0 }}
@@ -98,102 +107,64 @@ export default function WalletScreen() {
           style={styles.balanceCard}
         >
           <View style={styles.balanceTop}>
-            <WalletIcon color="#ffffffcc" size={20} />
             <Text style={[typography.caption, { color: "#ffffffcc" }]}>
               Available balance
             </Text>
+            <View style={styles.livePill}>
+              <View style={styles.liveDot} />
+              <Text style={[typography.micro, { color: "#fff" }]}>Active</Text>
+            </View>
           </View>
-          <Text
-            style={[typography.display, { color: "#fff", marginTop: spacing.md }]}
-          >
-            ₹ {Number(user?.balance ?? 0).toFixed(2)}
+          <Text style={[typography.display, { color: "#fff", marginTop: spacing.sm }]}>
+            ₹ <CountUp value={Number(user?.balance ?? 0)} />
           </Text>
-          <Pressable
-            onPress={() => setShowTopUp(true)}
-            style={styles.topUpBtn}
-          >
-            <Plus color="#fff" size={16} />
-            <Text
-              style={[
-                typography.caption,
-                { color: "#fff", marginLeft: 6, fontWeight: "600" },
+          
+          <View style={styles.balanceActions}>
+            <Pressable
+              onPress={() => setShowTopUp(true)}
+              style={({ pressed }) => [
+                styles.topUpBtn,
+                { opacity: pressed ? 0.8 : 1 },
               ]}
             >
-              Top up
-            </Text>
-          </Pressable>
+              <Plus color="#0a2540" size={16} />
+              <Text style={[typography.bodySm, { color: "#0a2540", marginLeft: 4, fontWeight: "700" }]}>
+                Top up
+              </Text>
+            </Pressable>
+          </View>
         </LinearGradient>
 
-        {/* Quick links */}
-        <View style={styles.quickRow}>
-          <Pressable
-            onPress={() => router.push("/journeys")}
-            style={[
-              styles.quickTile,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <Bus color={colors.accent} size={20} />
-            <Text
-              style={[
-                typography.caption,
-                { color: colors.textPrimary, marginTop: spacing.sm },
-              ]}
-            >
-              Journey history
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push("/card")}
-            style={[
-              styles.quickTile,
-              { backgroundColor: colors.surface, borderColor: colors.border },
-            ]}
-          >
-            <WalletIcon color={colors.accent} size={20} />
-            <Text
-              style={[
-                typography.caption,
-                { color: colors.textPrimary, marginTop: spacing.sm },
-              ]}
-            >
-              My cards
-            </Text>
-          </Pressable>
+        {/* Transactions */}
+        <View style={styles.sectionHeader}>
+          <Clock color={colors.textSecondary} size={14} />
+          <Text style={[typography.h3, { color: colors.textPrimary, marginLeft: spacing.sm }]}>
+            Recent transactions
+          </Text>
         </View>
 
-        {/* Transactions */}
-        <Text
-          style={[
-            typography.h3,
-            { color: colors.textPrimary, marginTop: spacing.xxl, marginBottom: spacing.lg },
-          ]}
-        >
-          Recent transactions
-        </Text>
-
         {error ? (
-          <Text style={[typography.bodySm, { color: colors.danger }]}>
+          <Text style={[typography.bodySm, { color: colors.danger, marginTop: spacing.md }]}>
             {error}
           </Text>
         ) : loading ? (
-          <View style={styles.center}>
-            <ActivityIndicator color={colors.accent} />
-          </View>
-        ) : !transactions || transactions.length === 0 ? (
-          <Card>
-            <Text
-              style={[
-                typography.body,
-                { color: colors.textSecondary, textAlign: "center" },
-              ]}
-            >
+          <TransactionSkeleton colors={colors} />
+        ) : transactions?.length === 0 ? (
+          <Card style={{ marginTop: spacing.lg }}>
+            <Text style={[typography.body, { color: colors.textSecondary, textAlign: "center" }]}>
               No transactions yet. Top up to get started.
             </Text>
           </Card>
         ) : (
-          transactions.map((t) => (
-            <TransactionRow key={t.transaction_id} txn={t} />
+          Object.entries(grouped).map(([dateLabel, txns]) => (
+            <View key={dateLabel} style={{ marginTop: spacing.lg }}>
+              <Text style={[typography.caption, { color: colors.textMuted, marginBottom: spacing.sm, marginLeft: 4 }]}>
+                {dateLabel}
+              </Text>
+              {txns.map((txn) => (
+                <TransactionRow key={txn.transaction_id} txn={txn} />
+              ))}
+            </View>
           ))
         )}
       </ScrollView>
@@ -211,74 +182,72 @@ export default function WalletScreen() {
   );
 }
 
+// ==========================================
+// Sub-components
+// ==========================================
+
 function TransactionRow({ txn }: { txn: Transaction }) {
   const { colors } = useTheme();
   const isCredit = txn.type === "TOPUP" || txn.type === "REFUND";
+  
+  const iconColor = isCredit ? colors.success : colors.primary;
   const amountColor = isCredit ? colors.success : colors.textPrimary;
   const sign = isCredit ? "+" : "-";
 
   const labelMap: Record<Transaction["type"], string> = {
     TOPUP: "Wallet top up",
     FARE_ENTRY: "Boarding hold",
-    FARE_UPDATE: "Fare update",
-    FARE_FINAL: "Fare final",
+    FARE_UPDATE: "Fare settled",
+    FARE_FINAL: "Final fare",
     REFUND: "Refund",
   };
 
-  const date = new Date(txn.created_at);
-  const dateStr = date.toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-  });
-  const timeStr = date.toLocaleTimeString(undefined, {
+  const Icon = isCredit ? ArrowDownLeft : txn.type.includes("FARE") ? Bus : ArrowUpRight;
+  const timeStr = new Date(txn.created_at).toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
   });
 
   return (
-    <View
-      style={[
-        styles.txnRow,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-      ]}
-    >
-      <View
-        style={[
-          styles.txnIcon,
-          {
-            backgroundColor: isCredit
-              ? colors.success + "22"
-              : colors.primary + "22",
-          },
-        ]}
-      >
-        {isCredit ? (
-          <ArrowDownLeft color={colors.success} size={18} />
-        ) : (
-          <ArrowUpRight color={colors.primary} size={18} />
-        )}
+    <View style={[styles.txnRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+      <View style={[styles.txnIcon, { backgroundColor: iconColor + "15" }]}>
+        <Icon color={iconColor} size={18} />
       </View>
 
       <View style={styles.txnBody}>
-        <Text style={[typography.bodyMedium, { color: colors.textPrimary }]}>
+        <Text style={[typography.bodyMedium, { color: colors.textPrimary, fontWeight: "600" }]}>
           {labelMap[txn.type] || txn.type}
         </Text>
-        <View style={styles.txnMetaRow}>
-          <Clock color={colors.textMuted} size={11} />
-          <Text
-            style={[
-              typography.micro,
-              { color: colors.textMuted, marginLeft: 4 },
-            ]}
-          >
-            {dateStr} · {timeStr}
-          </Text>
-        </View>
+        <Text style={[typography.micro, { color: colors.textMuted, marginTop: 2 }]}>
+          {timeStr}
+        </Text>
       </View>
 
-      <Text style={[typography.numericSm, { color: amountColor }]}>
-        {sign}₹{Math.abs(txn.amount).toFixed(2)}
-      </Text>
+      <View style={{ alignItems: "flex-end" }}>
+        <Text style={[typography.numericSm, { color: amountColor }]}>
+          {sign}₹{Math.abs(txn.amount).toFixed(2)}
+        </Text>
+        <Text style={[typography.micro, { color: colors.textMuted, marginTop: 2 }]}>
+          Bal: ₹{Number(txn.balance_after ?? 0).toFixed(0)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function TransactionSkeleton({ colors }: { colors: any }) {
+  return (
+    <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
+      {[1, 2, 3].map((i) => (
+        <View key={i} style={[styles.txnRow, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={[styles.txnIcon, { backgroundColor: colors.elevated }]} />
+          <View style={{ flex: 1, marginLeft: spacing.md }}>
+            <View style={{ width: 120, height: 14, backgroundColor: colors.elevated, borderRadius: 4 }} />
+            <View style={{ width: 60, height: 10, backgroundColor: colors.elevated, borderRadius: 4, marginTop: 6 }} />
+          </View>
+          <View style={{ width: 60, height: 16, backgroundColor: colors.elevated, borderRadius: 4 }} />
+        </View>
+      ))}
     </View>
   );
 }
@@ -297,13 +266,13 @@ function TopUpModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const presets = [50, 100, 200, 500];
+  const presets = [100, 200, 500, 1000];
 
   async function onSubmit() {
     setError(null);
     const value = parseFloat(amount);
-    if (isNaN(value) || value <= 0) {
-      setError("Enter a valid amount");
+    if (isNaN(value) || value < 10) {
+      setError("Minimum top up is ₹10");
       return;
     }
     setSubmitting(true);
@@ -320,19 +289,32 @@ function TopUpModal({
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalBackdrop}>
+      <KeyboardAvoidingView 
+        style={styles.modalBackdrop} 
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <View style={[styles.modalSheet, { backgroundColor: colors.bg }]}>
-          <Text style={[typography.h2, { color: colors.textPrimary }]}>
-            Top up wallet
-          </Text>
-          <Text
-            style={[
-              typography.body,
-              { color: colors.textSecondary, marginTop: spacing.sm, marginBottom: spacing.xl },
-            ]}
-          >
-            Add money to your SmartFare balance.
-          </Text>
+          <View style={styles.modalHeader}>
+            <Text style={[typography.h2, { color: colors.textPrimary }]}>
+              Add money
+            </Text>
+            <Pressable onPress={onClose} hitSlop={10}>
+              <X color={colors.textSecondary} size={24} />
+            </Pressable>
+          </View>
+
+          <View style={styles.amountInputWrap}>
+            <Text style={[typography.display, { color: colors.textPrimary }]}>₹</Text>
+            <TextInput
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="numeric"
+              style={[typography.display, { color: colors.textPrimary, flex: 1, marginLeft: 8 }]}
+              placeholder="0"
+              placeholderTextColor={colors.textMuted}
+              editable={!submitting}
+            />
+          </View>
 
           <View style={styles.presetRow}>
             {presets.map((p) => {
@@ -345,18 +327,11 @@ function TopUpModal({
                     styles.presetChip,
                     {
                       borderColor: active ? colors.accent : colors.border,
-                      backgroundColor: active
-                        ? colors.accent + "22"
-                        : "transparent",
+                      backgroundColor: active ? colors.accent + "15" : "transparent",
                     },
                   ]}
                 >
-                  <Text
-                    style={[
-                      typography.bodyMedium,
-                      { color: active ? colors.accent : colors.textPrimary },
-                    ]}
-                  >
+                  <Text style={[typography.bodyMedium, { color: active ? colors.accent : colors.textPrimary }]}>
                     ₹{p}
                   </Text>
                 </Pressable>
@@ -364,47 +339,54 @@ function TopUpModal({
             })}
           </View>
 
-          <View style={{ height: spacing.lg }} />
-
-          <TextInput
-            label="Amount"
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
-            placeholder="100"
-            editable={!submitting}
-          />
-
           {error ? (
-            <Text
-              style={[
-                typography.bodySm,
-                { color: colors.danger, marginTop: spacing.lg },
-              ]}
-            >
+            <Text style={[typography.bodySm, { color: colors.danger, marginTop: spacing.lg, textAlign: "center" }]}>
               {error}
             </Text>
           ) : null}
 
-          <View style={{ height: spacing.xl }} />
+          <View style={{ flex: 1 }} />
 
           <Button
-            label={`Add ₹${amount || 0}`}
+            label={`Pay ₹${amount || 0}`}
             onPress={onSubmit}
             loading={submitting}
             size="lg"
           />
-          <View style={{ height: spacing.sm }} />
-          <Button
-            label="Cancel"
-            variant="ghost"
-            onPress={onClose}
-            disabled={submitting}
-          />
+          <SafeAreaView edges={["bottom"]} />
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
+}
+
+// ==========================================
+// Helpers
+// ==========================================
+
+function groupTransactionsByDate(txns: Transaction[]) {
+  const groups: Record<string, Transaction[]> = {};
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  txns.forEach((t) => {
+    const d = new Date(t.created_at);
+    let label = "";
+
+    if (d.toDateString() === today.toDateString()) {
+      label = "Today";
+    } else if (d.toDateString() === yesterday.toDateString()) {
+      label = "Yesterday";
+    } else {
+      label = d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    }
+
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(t);
+  });
+
+  return groups;
 }
 
 const styles = StyleSheet.create({
@@ -414,64 +396,106 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xxl,
     paddingBottom: spacing.xxxl,
   },
-  center: { alignItems: "center", paddingVertical: spacing.xxl },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  iconBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   balanceCard: {
     marginTop: spacing.xl,
-    borderRadius: radii.lg,
+    borderRadius: radii.xl,
     padding: spacing.xl,
+    overflow: "hidden",
   },
-  balanceTop: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  balanceTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  livePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.2)",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#2EE6A6",
+    marginRight: 4,
+  },
+  balanceActions: {
+    flexDirection: "row",
+    marginTop: spacing.xl,
+  },
   topUpBtn: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: spacing.lg,
-    alignSelf: "flex-start",
+    backgroundColor: "#fff",
     paddingHorizontal: spacing.lg,
-    paddingVertical: 8,
-    borderRadius: radii.pill,
-    backgroundColor: "rgba(255,255,255,0.18)",
-  },
-  quickRow: {
-    flexDirection: "row",
-    gap: spacing.md,
-    marginTop: spacing.lg,
-  },
-  quickTile: {
-    flex: 1,
-    borderWidth: 1,
+    paddingVertical: 10,
     borderRadius: radii.md,
-    padding: spacing.lg,
+  },
+  sectionHeader: {
+    flexDirection: "row",
     alignItems: "center",
+    marginTop: spacing.xxxl,
   },
   txnRow: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
   txnIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
   },
   txnBody: { flex: 1, marginLeft: spacing.md },
-  txnMetaRow: { flexDirection: "row", alignItems: "center", marginTop: 3 },
+  
+  // Modal styles
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.55)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "flex-end",
   },
   modalSheet: {
-    borderTopLeftRadius: radii.xl,
-    borderTopRightRadius: radii.xl,
+    borderTopLeftRadius: radii.xxl,
+    borderTopRightRadius: radii.xxl,
     padding: spacing.xl,
-    paddingBottom: spacing.xxxl,
+    height: "75%",
   },
-  presetRow: { flexDirection: "row", gap: spacing.sm },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.xxl,
+  },
+  amountInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.xl,
+  },
+  presetRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
   presetChip: {
     flex: 1,
     paddingVertical: spacing.md,

@@ -463,6 +463,8 @@ async def top_up(
 
     return TopUpResponse(balance=float(user.balance), transaction_id=txn.transaction_id)
 
+#live map
+
 @router.get("/buses/live")
 async def live_buses(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -486,7 +488,7 @@ async def live_buses(
             t.status AS trip_status
         FROM gps_records gr
         LEFT JOIN trips t ON t.trip_id = gr.trip_id
-        WHERE gr.recorded_at > now() - (:minutes || ' minutes')::interval
+        WHERE gr.recorded_at > now() - make_interval(mins => :minutes)
         ORDER BY gr.bus_id, gr.recorded_at DESC
         """
     )

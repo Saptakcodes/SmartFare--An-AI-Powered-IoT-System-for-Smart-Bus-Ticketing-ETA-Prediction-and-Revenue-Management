@@ -1,5 +1,14 @@
 ﻿import { useRouter } from "expo-router";
-import { ArrowDownUp, Clock, MapPin, Users } from "lucide-react-native";
+import {
+  ArrowDownUp,
+  ArrowRight,
+  Bus,
+  Clock,
+  Flame,
+  MapPin,
+  Sparkles,
+  Star,
+} from "lucide-react-native";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -20,8 +29,17 @@ import {
   searchRoutes,
 } from "../../lib/routes";
 import { useTheme } from "../../theme/ThemeProvider";
-import { radii, spacing } from "../../theme/tokens";
+import { elevation, radii, spacing } from "../../theme/tokens";
 import { typography } from "../../theme/typography";
+
+// Sample frequent stops — will come from backend later
+const POPULAR_STOP_IDS = [
+  "STP-KOL-001",
+  "STP-KOL-002",
+  "STP-KOL-003",
+  "STP-KOL-004",
+  "STP-KOL-005",
+];
 
 export default function SearchScreen() {
   const router = useRouter();
@@ -65,6 +83,8 @@ export default function SearchScreen() {
     setError(null);
   }
 
+  const canSearch = source && destination && source.stop_id !== destination.stop_id;
+
   return (
     <Screen>
       <Text style={[typography.h1, { color: colors.textPrimary }]}>
@@ -79,11 +99,15 @@ export default function SearchScreen() {
         Pick where you're starting and where you're going
       </Text>
 
-      {/* Pickers card */}
-      <Card style={{ marginTop: spacing.xl }}>
+      {/* Picker card */}
+      <Card style={{ marginTop: spacing.xl, position: "relative" }}>
+        {/* From */}
         <Pressable
           onPress={() => setShowSourcePicker(true)}
-          style={styles.field}
+          style={({ pressed }) => [
+            styles.pickerRow,
+            { opacity: pressed ? 0.85 : 1 },
+          ]}
         >
           <View
             style={[
@@ -93,7 +117,7 @@ export default function SearchScreen() {
           >
             <MapPin color={colors.success} size={16} />
           </View>
-          <View style={styles.fieldText}>
+          <View style={styles.pickerText}>
             <Text
               style={[typography.caption, { color: colors.textSecondary }]}
             >
@@ -105,31 +129,32 @@ export default function SearchScreen() {
                 {
                   color: source ? colors.textPrimary : colors.textMuted,
                   marginTop: 2,
+                  fontWeight: source ? "600" : "400",
                 },
               ]}
             >
               {source ? source.name : "Select a stop"}
             </Text>
           </View>
+          <ArrowRight color={colors.textMuted} size={16} />
         </Pressable>
 
-        <View
-          style={[styles.divider, { backgroundColor: colors.border }]}
-        />
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
+        {/* To */}
         <Pressable
           onPress={() => setShowDestPicker(true)}
-          style={styles.field}
+          style={({ pressed }) => [
+            styles.pickerRow,
+            { opacity: pressed ? 0.85 : 1 },
+          ]}
         >
           <View
-            style={[
-              styles.iconDot,
-              { backgroundColor: colors.danger + "22" },
-            ]}
+            style={[styles.iconDot, { backgroundColor: colors.danger + "22" }]}
           >
             <MapPin color={colors.danger} size={16} />
           </View>
-          <View style={styles.fieldText}>
+          <View style={styles.pickerText}>
             <Text
               style={[typography.caption, { color: colors.textSecondary }]}
             >
@@ -141,12 +166,14 @@ export default function SearchScreen() {
                 {
                   color: destination ? colors.textPrimary : colors.textMuted,
                   marginTop: 2,
+                  fontWeight: destination ? "600" : "400",
                 },
               ]}
             >
               {destination ? destination.name : "Select a stop"}
             </Text>
           </View>
+          <ArrowRight color={colors.textMuted} size={16} />
         </Pressable>
 
         {/* Swap button */}
@@ -156,7 +183,7 @@ export default function SearchScreen() {
           style={[
             styles.swapButton,
             {
-              backgroundColor: colors.surface,
+              backgroundColor: colors.bg,
               borderColor: colors.border,
             },
           ]}
@@ -165,21 +192,21 @@ export default function SearchScreen() {
         </Pressable>
       </Card>
 
-      {/* Search / Reset buttons */}
+      {/* Action buttons */}
       <View style={{ height: spacing.lg }} />
       <Button
         label="Search routes"
         onPress={onSearch}
         loading={searching}
-        disabled={!source || !destination}
+        disabled={!canSearch}
         size="lg"
       />
-      {(source || destination) && (
+      {(source || destination) && !searching ? (
         <>
-          <View style={{ height: spacing.md }} />
+          <View style={{ height: spacing.sm }} />
           <Button label="Reset" variant="ghost" onPress={reset} />
         </>
-      )}
+      ) : null}
 
       {/* Error */}
       {error ? (
@@ -197,18 +224,69 @@ export default function SearchScreen() {
         </Text>
       ) : null}
 
-      {/* Results */}
-      {results !== null && (
+      {/* Popular stops before searching */}
+      {!results && !source && !destination ? (
         <View style={{ marginTop: spacing.xxl }}>
-          <Text
-            style={[typography.h3, { color: colors.textPrimary }]}
-          >
-            {results.length === 0
-              ? "No routes found"
-              : `${results.length} ${
-                  results.length === 1 ? "route" : "routes"
-                } available`}
-          </Text>
+          <View style={styles.sectionHeader}>
+            <Flame color={colors.accent} size={14} />
+            <Text
+              style={[
+                typography.h3,
+                { color: colors.textPrimary, marginLeft: spacing.sm },
+              ]}
+            >
+              Popular stops
+            </Text>
+          </View>
+
+          <View style={styles.popularGrid}>
+            {["Esplanade", "Park Street", "Rabindra Sadan", "Kalighat"].map(
+              (name, i) => (
+                <Pressable
+                  key={name}
+                  onPress={() => setShowSourcePicker(true)}
+                  style={[
+                    styles.popularChip,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <Star color={colors.accent} size={12} />
+                  <Text
+                    style={[
+                      typography.bodySm,
+                      { color: colors.textPrimary, marginLeft: 6 },
+                    ]}
+                  >
+                    {name}
+                  </Text>
+                </Pressable>
+              )
+            )}
+          </View>
+        </View>
+      ) : null}
+
+      {/* Results */}
+      {results !== null ? (
+        <View style={{ marginTop: spacing.xxl }}>
+          <View style={styles.sectionHeader}>
+            <Sparkles color={colors.accent} size={14} />
+            <Text
+              style={[
+                typography.h3,
+                { color: colors.textPrimary, marginLeft: spacing.sm },
+              ]}
+            >
+              {results.length === 0
+                ? "No routes found"
+                : `${results.length} ${
+                    results.length === 1 ? "route" : "routes"
+                  } available`}
+            </Text>
+          </View>
 
           {results.length === 0 ? (
             <Card style={{ marginTop: spacing.lg }}>
@@ -223,10 +301,11 @@ export default function SearchScreen() {
               </Text>
             </Card>
           ) : (
-            results.map((r) => (
+            results.map((r, idx) => (
               <RouteResultCard
                 key={r.route_id}
                 result={r}
+                index={idx}
                 onPress={() =>
                   router.push({
                     pathname: "/route/[route_id]",
@@ -237,7 +316,7 @@ export default function SearchScreen() {
             ))
           )}
         </View>
-      )}
+      ) : null}
 
       {/* Pickers */}
       <StopPickerModal
@@ -266,50 +345,97 @@ export default function SearchScreen() {
 
 function RouteResultCard({
   result,
+  index,
   onPress,
 }: {
   result: RouteSearchResult;
+  index: number;
   onPress: () => void;
 }) {
   const { colors } = useTheme();
+
+  // Placeholder metrics — will come from ETA/analytics endpoint later
+  const eta = 3 + index * 4;
+  const fare = 10 + index * 4;
+  const stops = result.stops_count;
+  const isFastest = index === 0;
+
   return (
-    <Pressable onPress={onPress} style={{ marginTop: spacing.lg }}>
-      <Card>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        { marginTop: spacing.md, transform: [{ scale: pressed ? 0.99 : 1 }] },
+      ]}
+    >
+      <Card style={elevation.sm}>
+        {/* Header row */}
         <View style={styles.routeHeader}>
           <View
             style={[
               styles.routeBadge,
-              { backgroundColor: colors.primary + "22" },
+              { backgroundColor: colors.primary + "1A" },
             ]}
           >
-            <Text style={[typography.bodyMedium, { color: colors.primary }]}>
+            <Bus color={colors.primary} size={12} />
+            <Text
+              style={[
+                typography.micro,
+                { color: colors.primary, marginLeft: 4, fontWeight: "700" },
+              ]}
+            >
               {result.route_id}
             </Text>
           </View>
+
           <Text
             style={[
-              typography.h3,
-              { color: colors.textPrimary, marginLeft: spacing.md, flex: 1 },
+              typography.bodyMedium,
+              {
+                color: colors.textPrimary,
+                marginLeft: spacing.md,
+                flex: 1,
+                fontWeight: "600",
+              },
             ]}
+            numberOfLines={1}
           >
             {result.name}
           </Text>
+
+          {isFastest ? (
+            <View
+              style={[
+                styles.fastestPill,
+                { backgroundColor: colors.success + "1A" },
+              ]}
+            >
+              <Sparkles color={colors.success} size={10} />
+              <Text
+                style={[
+                  typography.micro,
+                  { color: colors.success, marginLeft: 3, fontWeight: "700" },
+                ]}
+              >
+                FASTEST
+              </Text>
+            </View>
+          ) : null}
         </View>
 
-        <View style={{ height: spacing.lg }} />
-
+        {/* Stops row */}
         <View style={styles.routeStopsRow}>
           <View style={styles.stopColumn}>
             <Text
-              style={[typography.caption, { color: colors.textSecondary }]}
+              style={[typography.micro, { color: colors.textSecondary }]}
             >
               From
             </Text>
             <Text
               style={[
-                typography.bodyMedium,
-                { color: colors.textPrimary, marginTop: 2 },
+                typography.bodySm,
+                { color: colors.textPrimary, marginTop: 2, fontWeight: "600" },
               ]}
+              numberOfLines={1}
             >
               {result.source_stop_name}
             </Text>
@@ -319,46 +445,53 @@ function RouteResultCard({
           />
           <View style={styles.stopColumn}>
             <Text
-              style={[typography.caption, { color: colors.textSecondary }]}
+              style={[typography.micro, { color: colors.textSecondary }]}
             >
               To
             </Text>
             <Text
               style={[
-                typography.bodyMedium,
-                { color: colors.textPrimary, marginTop: 2 },
+                typography.bodySm,
+                { color: colors.textPrimary, marginTop: 2, fontWeight: "600" },
               ]}
+              numberOfLines={1}
             >
               {result.destination_stop_name}
             </Text>
           </View>
         </View>
 
-        <View style={{ height: spacing.lg }} />
-
+        {/* Meta row */}
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
-            <Users color={colors.textMuted} size={14} />
+            <Clock color={colors.accent} size={12} />
             <Text
               style={[
-                typography.caption,
-                { color: colors.textMuted, marginLeft: 6 },
+                typography.micro,
+                { color: colors.textSecondary, marginLeft: 4 },
               ]}
             >
-              {result.stops_count} stops
+              ~{eta} min
             </Text>
           </View>
-          <View style={styles.metaItem}>
-            <Clock color={colors.textMuted} size={14} />
-            <Text
-              style={[
-                typography.caption,
-                { color: colors.textMuted, marginLeft: 6 },
-              ]}
-            >
-              Tap for timetable
-            </Text>
-          </View>
+          <View style={styles.metaDot} />
+          <Text
+            style={[
+              typography.micro,
+              { color: colors.textSecondary, marginLeft: 6 },
+            ]}
+          >
+            {stops} stops
+          </Text>
+          <View style={{ flex: 1 }} />
+          <Text
+            style={[
+              typography.bodySm,
+              { color: colors.textPrimary, fontWeight: "700" },
+            ]}
+          >
+            ₹{fare.toFixed(0)}
+          </Text>
         </View>
       </Card>
     </Pressable>
@@ -366,20 +499,20 @@ function RouteResultCard({
 }
 
 const styles = StyleSheet.create({
-  field: {
+  pickerRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
   },
   iconDot: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
-  fieldText: { marginLeft: spacing.md, flex: 1 },
-  divider: { height: 1, marginVertical: spacing.xs, marginLeft: 48 },
+  pickerText: { marginLeft: spacing.md, flex: 1 },
+  divider: { height: 1, marginVertical: spacing.xs, marginLeft: 52 },
   swapButton: {
     position: "absolute",
     right: spacing.lg,
@@ -391,16 +524,62 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
+    elevation: 3,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  popularGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  popularChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    borderWidth: 1,
   },
   routeHeader: { flexDirection: "row", alignItems: "center" },
   routeBadge: {
-    paddingHorizontal: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.sm,
     paddingVertical: 4,
+    borderRadius: radii.sm,
+  },
+  fastestPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
     borderRadius: radii.pill,
   },
-  routeStopsRow: { flexDirection: "row", alignItems: "center" },
+  routeStopsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: spacing.lg,
+  },
   stopColumn: { flex: 1 },
   routeLine: { width: 24, height: 1, marginHorizontal: spacing.sm },
-  metaRow: { flexDirection: "row", gap: spacing.lg },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: spacing.lg,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: "transparent",
+  },
   metaItem: { flexDirection: "row", alignItems: "center" },
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: "#666",
+    marginLeft: 8,
+  },
 });

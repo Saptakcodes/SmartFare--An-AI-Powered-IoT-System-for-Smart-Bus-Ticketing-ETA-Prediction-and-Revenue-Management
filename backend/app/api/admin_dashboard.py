@@ -7,7 +7,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_admin
 from app.db.session import get_db
-from app.models import Admin, Bus, DeviceStatus, Journey, Route, Stop, Transaction
+from app.models import (
+    Admin,
+    Bus,
+    DeviceStatus,
+    Journey,
+    Route,
+    Stop,
+    Transaction,
+    User,        
+    RFIDCard,    
+)
 from app.schemas.admin_dashboard import (
     DeviceHealthItem,
     FleetBusItem,
@@ -24,23 +34,30 @@ router = APIRouter(prefix="/admin/dashboard", tags=["admin-dashboard"])
 async def overview(
     db: Annotated[AsyncSession, Depends(get_db)],
     _: Annotated[Admin, Depends(get_current_admin)],
+    days: int = Query(default=1, ge=1, le=365),
 ):
     now = datetime.now(timezone.utc)
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    yesterday_start = today_start - timedelta(days=1)
+    
+    # Calculate date ranges based on the 'days' filter
+    current_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    if days > 1:
+        current_start = current_start - timedelta(days=days-1)
+        
+    previous_start = current_start - timedelta(days=days)
+    previous_end = current_start
 
     # Revenue
-    rev_today = await db.scalar(
+    rev_current = await db.scalar(
         select(func.coalesce(func.sum(Transaction.amount), 0)).where(
             Transaction.type == "FARE_UPDATE",
-            Transaction.created_at >= today_start,
+            Transaction.created_at >= current_start,
         )
     )
-    rev_yest = await db.scalar(
+    rev_prev = await db.scalar(
         select(func.coalesce(func.sum(Transaction.amount), 0)).where(
             Transaction.type == "FARE_UPDATE",
-            Transaction.created_at >= yesterday_start,
-            Transaction.created_at < today_start,
+            Transaction.created_at >= previous_start,
+            Transaction.created_at < previous_end,
         )
     )
 
@@ -51,57 +68,49 @@ async def overview(
         return round(((c - p) / p) * 100, 1)
 
     # Journeys
-    j_today = await db.scalar(
+    j_current = await db.scalar(
         select(func.count(Journey.journey_id)).where(
-            Journey.started_at >= today_start
+            Journey.started_at >= current_start
         )
     )
-    j_yest = await db.scalar(
+    j_prev = await db.scalar(
         select(func.count(Journey.journey_id)).where(
-            Journey.started_at >= yesterday_start,
-            Journey.started_at < today_start,
+            Journey.started_at >= previous_start,
+            Journey.started_at < previous_end,
         )
     )
 
-    # Buses
-    total_buses = await db.scalar(
-        select(func.count(Bus.bus_id)).where(Bus.is_active.is_(True))
-    ) or 0
-
-    # Active trips
-    active_trips = await db.scalar(
-        text("SELECT COUNT(*) FROM trips WHERE status = 'ACTIVE'")
-    ) or 0
-
-    # Active buses = buses with recent GPS
+    # Fleet & System Stats
+    total_buses = await db.scalar(select(func.count(Bus.bus_id)).where(Bus.is_active.is_(True))) or 0
+    active_trips = await db.scalar(text("SELECT COUNT(*) FROM trips WHERE status = 'ACTIVE'")) or 0
     active_buses = await db.scalar(
-        text(
-            "SELECT COUNT(DISTINCT bus_id) FROM gps_records "
-            "WHERE recorded_at > now() - interval '10 minutes'"
-        )
+        text("SELECT COUNT(DISTINCT bus_id) FROM gps_records WHERE recorded_at > now() - interval '10 minutes'")
     ) or 0
-
-    # Devices
     devices_total = await db.scalar(select(func.count(DeviceStatus.device_id))) or 0
     devices_online = await db.scalar(
-        text(
-            "SELECT COUNT(*) FROM device_status "
-            "WHERE last_seen_at > now() - interval '5 minutes'"
-        )
+        text("SELECT COUNT(*) FROM device_status WHERE last_seen_at > now() - interval '5 minutes'")
     ) or 0
 
+    # NEW Database Counts
+    total_users = await db.scalar(select(func.count(User.user_id))) or 0
+    total_cards = await db.scalar(select(func.count(RFIDCard.rfid_id))) or 0
+    total_routes = await db.scalar(select(func.count(Route.route_id)).where(Route.is_active.is_(True))) or 0
+
     return OverviewResponse(
-        revenue_today=float(rev_today or 0),
-        revenue_yesterday=float(rev_yest or 0),
-        revenue_delta_pct=pct(rev_today, rev_yest),
-        journeys_today=int(j_today or 0),
-        journeys_yesterday=int(j_yest or 0),
-        journeys_delta_pct=pct(j_today, j_yest),
+        revenue_today=float(rev_current or 0),
+        revenue_yesterday=float(rev_prev or 0),
+        revenue_delta_pct=pct(rev_current, rev_prev),
+        journeys_today=int(j_current or 0),
+        journeys_yesterday=int(j_prev or 0),
+        journeys_delta_pct=pct(j_current, j_prev),
         active_buses=int(active_buses),
         total_buses=int(total_buses),
         active_trips=int(active_trips),
         devices_online=int(devices_online),
         devices_total=int(devices_total),
+        total_users=int(total_users),
+        total_cards=int(total_cards),
+        total_routes=int(total_routes),
     )
 
 

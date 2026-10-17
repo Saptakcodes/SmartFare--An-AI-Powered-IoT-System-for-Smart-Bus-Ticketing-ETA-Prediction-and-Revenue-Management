@@ -28,10 +28,14 @@ export interface Overview {
   active_trips: number;
   devices_online: number;
   devices_total: number;
+  total_users: number;
+  total_cards: number;
+  total_routes: number;
 }
 
-export function getOverview(): Promise<Overview> {
-  return adminRequest<Overview>("/admin/dashboard/overview");
+// Update the function to accept days
+export function getOverview(days: number = 1): Promise<Overview> {
+  return adminRequest<Overview>(`/admin/dashboard/overview?days=${days}`);
 }
 
 export interface FleetBus {

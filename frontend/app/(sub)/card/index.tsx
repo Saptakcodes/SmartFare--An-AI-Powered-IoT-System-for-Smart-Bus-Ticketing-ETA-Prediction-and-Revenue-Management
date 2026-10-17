@@ -1,6 +1,6 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import { ArrowLeft, Plus, ShieldAlert } from "lucide-react-native";
+import { ArrowLeft, Nfc, Plus, ShieldAlert } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,15 +14,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../../components/ui/Button";
-import { Card } from "../../../components/ui/Card";
 import { listCards, RFIDCard } from "../../../lib/cards";
 import { useTheme } from "../../../theme/ThemeProvider";
 import { radii, spacing } from "../../../theme/tokens";
 import { typography } from "../../../theme/typography";
 
 function maskUid(uid: string): string {
-  if (uid.length <= 6) return uid;
-  return `${uid.slice(0, 4)}••••${uid.slice(-4)}`;
+  if (uid.length <= 8) return uid;
+  return `${uid.slice(0, 4)} •••• •••• ${uid.slice(-4)}`;
 }
 
 export default function CardListScreen() {
@@ -177,7 +176,9 @@ function CardVisual({ card }: { card: RFIDCard }) {
           params: { rfid_id: card.rfid_id },
         })
       }
-      style={{ marginTop: spacing.lg }}
+      style={({ pressed }) => [
+        { marginTop: spacing.xl, transform: [{ scale: pressed ? 0.98 : 1 }] },
+      ]}
     >
       <LinearGradient
         colors={
@@ -190,9 +191,7 @@ function CardVisual({ card }: { card: RFIDCard }) {
         style={styles.cardVisual}
       >
         <View style={styles.cardTop}>
-          <Text style={[typography.caption, { color: "#ffffffcc" }]}>
-            SmartFare Card
-          </Text>
+          <Nfc color="#ffffffcc" size={28} />
           <View
             style={[
               styles.statusPill,
@@ -204,10 +203,10 @@ function CardVisual({ card }: { card: RFIDCard }) {
             <Text
               style={[
                 typography.caption,
-                { color: blocked ? "#FF5C7A" : "#2EE6A6" },
+                { color: blocked ? "#FF5C7A" : "#2EE6A6", fontWeight: "600" },
               ]}
             >
-              {blocked ? "Blocked" : "Active"}
+              {blocked ? "BLOCKED" : "ACTIVE"}
             </Text>
           </View>
         </View>
@@ -218,7 +217,8 @@ function CardVisual({ card }: { card: RFIDCard }) {
             {
               color: "#fff",
               marginTop: spacing.xxxl,
-              letterSpacing: 3,
+              letterSpacing: 2,
+              fontVariant: ["tabular-nums"],
             },
           ]}
         >
@@ -226,11 +226,23 @@ function CardVisual({ card }: { card: RFIDCard }) {
         </Text>
 
         <View style={styles.cardBottom}>
-          <Text style={[typography.micro, { color: "#ffffffcc" }]}>UID</Text>
-          <Text style={[typography.micro, { color: "#ffffffcc" }]}>
-            Since {new Date(card.issued_at).toLocaleDateString()}
-          </Text>
+          <View>
+            <Text style={[typography.micro, { color: "#ffffffaa" }]}>CARDHOLDER</Text>
+            <Text style={[typography.bodySm, { color: "#fff", fontWeight: "600" }]}>
+              SmartFare User
+            </Text>
+          </View>
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={[typography.micro, { color: "#ffffffaa" }]}>ISSUED</Text>
+            <Text style={[typography.bodySm, { color: "#fff" }]}>
+              {new Date(card.issued_at).toLocaleDateString(undefined, { month: "2-digit", year: "2-digit" })}
+            </Text>
+          </View>
         </View>
+        
+        {/* Decorative Circles */}
+        <View style={styles.deco1} />
+        <View style={styles.deco2} />
       </LinearGradient>
     </Pressable>
   );
@@ -257,15 +269,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cardVisual: {
-    borderRadius: radii.lg,
+    borderRadius: radii.xl,
     padding: spacing.xl,
-    minHeight: 180,
+    aspectRatio: 1.6,
     justifyContent: "space-between",
+    overflow: "hidden",
   },
   cardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    zIndex: 2,
   },
   statusPill: {
     paddingHorizontal: spacing.md,
@@ -275,6 +289,25 @@ const styles = StyleSheet.create({
   cardBottom: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: spacing.xxxl,
+    alignItems: "flex-end",
+    zIndex: 2,
+  },
+  deco1: {
+    position: "absolute",
+    right: -40,
+    top: -40,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
+  deco2: {
+    position: "absolute",
+    left: -30,
+    bottom: -60,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "rgba(255,255,255,0.05)",
   },
 });

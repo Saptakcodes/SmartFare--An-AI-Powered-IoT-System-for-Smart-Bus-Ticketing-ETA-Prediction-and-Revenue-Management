@@ -1,8 +1,16 @@
-﻿import { useRouter } from "expo-router";
-import { ArrowLeft, Bus, RefreshCw } from "lucide-react-native";
+﻿import { BlurView } from "expo-blur";
+import { useRouter } from "expo-router";
+import {
+  ArrowLeft,
+  Bus,
+  Navigation,
+  RefreshCw,
+  Signal,
+} from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -11,32 +19,26 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { LiveMap } from "../../components/feature/LiveMap";
+import { fetchLiveBuses, LiveBus } from "../../lib/buses";
+import { RouteDetail, getRouteDetail } from "../../lib/routes";
 import { useTheme } from "../../theme/ThemeProvider";
 import { radii, spacing } from "../../theme/tokens";
 import { typography } from "../../theme/typography";
-import { LiveBus, fetchLiveBuses } from "../../lib/buses";
-import {
-  RouteDetail,
-  getRouteDetail,
-} from "../../lib/routes";
 
-// Kolkata center — matches our seed data
 const DEFAULT_CENTER = { lat: 22.5465, lon: 88.3470 };
 const DEFAULT_ROUTE = "R-001";
 
 export default function MapScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   const [route, setRoute] = useState<RouteDetail | null>(null);
   const [buses, setBuses] = useState<LiveBus[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setError(null);
     try {
       const [r, b] = await Promise.all([
         getRouteDetail(DEFAULT_ROUTE).catch(() => null),
@@ -45,8 +47,8 @@ export default function MapScreen() {
       if (r) setRoute(r);
       setBuses(b);
       setLastUpdated(new Date());
-    } catch (e: any) {
-      setError(e?.detail || "Could not load map data");
+    } catch (e) {
+      // silently fail, map still works
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -64,14 +66,13 @@ export default function MapScreen() {
     load();
   }
 
-  const stopsForMap =
-    route?.stops.map((s) => ({
-      stop_id: s.stop_id,
-      name: s.name,
-      latitude: s.latitude,
-      longitude: s.longitude,
-      seq: s.seq,
-    })) ?? [];
+  const stopsForMap = route?.stops.map((s) => ({
+    stop_id: s.stop_id,
+    name: s.name,
+    latitude: s.latitude,
+    longitude: s.longitude,
+    seq: s.seq,
+  })) ?? [];
 
   const busesForMap = buses.map((b) => ({
     bus_id: b.bus_id,
@@ -80,139 +81,206 @@ export default function MapScreen() {
     route_id: b.route_id,
   }));
 
+  // Glassmorphism fallback for web if blur isn't supported perfectly
+  const GlassPanel = Platform.OS === "web" ? View : BlurView;
+  const glassProps = Platform.OS === "web" ? {} : { intensity: isDark ? 50 : 70, tint: isDark ? "dark" : "light" };
+
   return (
-    <SafeAreaView style={[styles.flex, { backgroundColor: colors.bg }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
-          <ArrowLeft color={colors.textPrimary} size={22} />
-        </Pressable>
-        <Text
+    <View style={styles.container}>
+      {/* 1. Full Screen Map */}
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.accent} />
+        </View>
+      ) : (
+        <LiveMap
+          center={DEFAULT_CENTER}
+          zoom={12}
+          routeStops={stopsForMap}
+          buses={busesForMap}
+        />
+      )}
+
+      {/* 2. Floating Top Bar */}
+      <SafeAreaView style={styles.topBarContainer} edges={["top"]}>
+        <GlassPanel
+          {...glassProps}
           style={[
-            typography.h3,
-            { color: colors.textPrimary, marginLeft: spacing.md, flex: 1 },
+            styles.glassPanel,
+            { borderColor: colors.border, backgroundColor: Platform.OS === "web" ? colors.surface : "transparent" },
           ]}
         >
-          Live Map
-        </Text>
-        <Pressable onPress={onRefresh} hitSlop={10} disabled={refreshing}>
-          {refreshing ? (
-            <ActivityIndicator size="small" color={colors.accent} />
-          ) : (
-            <RefreshCw color={colors.textSecondary} size={20} />
-          )}
-        </Pressable>
-      </View>
-
-      {/* Map */}
-      <View style={styles.mapWrap}>
-        {loading ? (
-          <View style={styles.center}>
-            <ActivityIndicator color={colors.accent} />
+          <Pressable onPress={() => router.back()} hitSlop={10} style={styles.iconBtn}>
+            <ArrowLeft color={colors.textPrimary} size={22} />
+          </Pressable>
+          
+          <View style={styles.titleWrap}>
+            <Text style={[typography.h3, { color: colors.textPrimary }]}>
+              Live Map
+            </Text>
+            <Text style={[typography.micro, { color: colors.textSecondary }]}>
+              {route?.name || "Tracking"}
+            </Text>
           </View>
-        ) : (
-          <LiveMap
-            center={DEFAULT_CENTER}
-            zoom={12}
-            routeStops={stopsForMap}
-            buses={busesForMap}
-          />
-        )}
-      </View>
 
-      {/* Info bar */}
-      <View
-        style={[
-          styles.infoBar,
-          { backgroundColor: colors.surface, borderTopColor: colors.border },
-        ]}
-      >
-        <View style={styles.infoLeft}>
-          <View
-            style={[
-              styles.dot,
-              {
-                backgroundColor:
-                  buses.length > 0 ? colors.success : colors.textMuted,
-              },
-            ]}
-          />
-          <Text
-            style={[
-              typography.bodySm,
-              { color: colors.textPrimary, marginLeft: spacing.sm },
-            ]}
-          >
-            {buses.length} {buses.length === 1 ? "bus" : "buses"} online
-          </Text>
-        </View>
-        <Text style={[typography.micro, { color: colors.textMuted }]}>
-          {lastUpdated
-            ? `Updated ${Math.floor(
-                (Date.now() - lastUpdated.getTime()) / 1000
-              )}s ago`
-            : "—"}
-        </Text>
-      </View>
+          <Pressable onPress={onRefresh} hitSlop={10} disabled={refreshing} style={styles.iconBtn}>
+            {refreshing ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <RefreshCw color={colors.textPrimary} size={18} />
+            )}
+          </Pressable>
+        </GlassPanel>
+      </SafeAreaView>
 
-      {error ? (
-        <View style={[styles.errorBar, { backgroundColor: colors.danger + "22" }]}>
-          <Text style={[typography.bodySm, { color: colors.danger }]}>
-            {error}
-          </Text>
-        </View>
-      ) : null}
-
-      {!loading && buses.length === 0 ? (
-        <View
+      {/* 3. Floating Bottom Sheet */}
+      <SafeAreaView style={styles.bottomSheetContainer} edges={["bottom"]} pointerEvents="box-none">
+        <GlassPanel
+          {...glassProps}
           style={[
-            styles.emptyBar,
-            { backgroundColor: colors.warning + "22" },
+            styles.bottomPanel,
+            { borderColor: colors.border, backgroundColor: Platform.OS === "web" ? colors.surface : "transparent" },
           ]}
         >
-          <Bus color={colors.warning} size={14} />
-          <Text
-            style={[
-              typography.caption,
-              { color: colors.warning, marginLeft: 6 },
-            ]}
-          >
-            No live buses right now. The map shows the route only.
-          </Text>
-        </View>
-      ) : null}
-    </SafeAreaView>
+          {/* Handle */}
+          <View style={styles.handle} />
+
+          <View style={styles.statusRow}>
+            <View style={styles.statusLeft}>
+              <View style={[styles.dot, { backgroundColor: buses.length > 0 ? colors.success : colors.textMuted }]} />
+              <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginLeft: spacing.sm }]}>
+                {buses.length} {buses.length === 1 ? "bus" : "buses"} active
+              </Text>
+            </View>
+            <Text style={[typography.micro, { color: colors.textMuted }]}>
+              {lastUpdated ? `Updated ${Math.floor((Date.now() - lastUpdated.getTime()) / 1000)}s ago` : "—"}
+            </Text>
+          </View>
+
+          {/* List of active buses */}
+          {buses.length === 0 ? (
+            <View style={styles.emptyBuses}>
+              <Bus color={colors.textMuted} size={24} />
+              <Text style={[typography.bodySm, { color: colors.textSecondary, marginTop: spacing.sm }]}>
+                No buses currently moving on this route.
+              </Text>
+            </View>
+          ) : (
+            buses.map((b) => (
+              <View key={b.bus_id} style={styles.busRow}>
+                <View style={[styles.busIcon, { backgroundColor: colors.primary + "1A" }]}>
+                  <Bus color={colors.primary} size={16} />
+                </View>
+                <View style={{ flex: 1, marginLeft: spacing.md }}>
+                  <Text style={[typography.bodySm, { color: colors.textPrimary, fontWeight: "600" }]}>
+                    Bus {b.bus_id.slice(-4).toUpperCase()}
+                  </Text>
+                  <Text style={[typography.micro, { color: colors.textMuted, marginTop: 2 }]}>
+                    Trip {b.trip_id?.split("-").pop() || "N/A"}
+                  </Text>
+                </View>
+                <View style={styles.busMeta}>
+                  <Navigation color={colors.accent} size={12} />
+                  <Text style={[typography.micro, { color: colors.accent, marginLeft: 4 }]}>
+                    {b.speed_kmph ? `${b.speed_kmph.toFixed(0)} km/h` : "Moving"}
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
+        </GlassPanel>
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
-  header: {
+  container: { flex: 1, backgroundColor: "#000" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  
+  // Floating Top Bar
+  topBarContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  glassPanel: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
+    padding: spacing.sm,
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    overflow: "hidden",
   },
-  mapWrap: { flex: 1, overflow: "hidden" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  infoBar: {
+  titleWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // Floating Bottom Sheet
+  bottomSheetContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  bottomPanel: {
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    padding: spacing.lg,
+    overflow: "hidden",
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "rgba(150,150,150,0.3)",
+    alignSelf: "center",
+    marginBottom: spacing.lg,
+  },
+  statusRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
-    borderTopWidth: 1,
+    marginBottom: spacing.md,
   },
-  infoLeft: { flexDirection: "row", alignItems: "center" },
+  statusLeft: { flexDirection: "row", alignItems: "center" },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  errorBar: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
+  
+  emptyBuses: {
+    alignItems: "center",
+    paddingVertical: spacing.xl,
   },
-  emptyBar: {
+  
+  busRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(150,150,150,0.1)",
+  },
+  busIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  busMeta: {
+    flexDirection: "row",
+    alignItems: "center",
   },
 });

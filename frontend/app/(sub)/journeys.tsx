@@ -1,5 +1,10 @@
 import { useFocusEffect, useRouter } from "expo-router";
-import { ArrowLeft, Bus, MapPin } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Bus,
+  CheckCircle2,
+  Clock,
+} from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
@@ -15,7 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Card } from "../../components/ui/Card";
 import { Journey, listMyJourneys } from "../../lib/journeys";
 import { useTheme } from "../../theme/ThemeProvider";
-import { radii, spacing } from "../../theme/tokens";
+import { elevation, radii, spacing } from "../../theme/tokens";
 import { typography } from "../../theme/typography";
 
 export default function JourneysScreen() {
@@ -73,7 +78,7 @@ export default function JourneysScreen() {
               { color: colors.textPrimary, marginLeft: spacing.lg },
             ]}
           >
-            Journey history
+            Journey History
           </Text>
         </View>
 
@@ -133,6 +138,7 @@ function JourneyCard({ journey }: { journey: Journey }) {
   const { colors } = useTheme();
   const date = new Date(journey.started_at);
 
+  // Kept your exact state colors logic
   const stateColor: Record<string, string> = {
     ACTIVE: colors.accent,
     POSSIBLE_EXIT: colors.warning,
@@ -147,149 +153,176 @@ function JourneyCard({ journey }: { journey: Journey }) {
     REFUNDED: colors.info,
   };
 
+  const isSettled = journey.financial_state === "SETTLED";
+  const isPending = journey.outstanding_amount > 0;
+
   return (
-    <Card style={{ marginTop: spacing.lg }}>
-      <View style={styles.row}>
-        <View
-          style={[
-            styles.routeBadge,
-            { backgroundColor: colors.primary + "22" },
-          ]}
-        >
-          <Text style={[typography.bodyMedium, { color: colors.primary }]}>
-            {journey.route_id}
-          </Text>
-        </View>
-        <Text
-          style={[
-            typography.bodyMedium,
-            {
-              color: colors.textPrimary,
-              marginLeft: spacing.md,
-              flex: 1,
-            },
-          ]}
-        >
-          {journey.route_name || "Route"}
-        </Text>
-        <Text
-          style={[typography.micro, { color: colors.textMuted }]}
-        >
-          {date.toLocaleDateString(undefined, {
-            day: "numeric",
-            month: "short",
-          })}{" "}
-          ·{" "}
-          {date.toLocaleTimeString(undefined, {
-            hour: "2-digit",
-            minute: "2-digit",
-          })}
-        </Text>
-      </View>
-
-      <View style={styles.stopsRow}>
-        <View style={styles.stopLine}>
-          <View
-            style={[styles.dot, { backgroundColor: colors.success }]}
-          />
-          <View
-            style={[styles.line, { backgroundColor: colors.border }]}
-          />
-          <View style={[styles.dot, { backgroundColor: colors.danger }]} />
-        </View>
-        <View style={styles.stopLabels}>
-          <View>
-            <Text
-              style={[typography.micro, { color: colors.textSecondary }]}
-            >
-              Boarded
-            </Text>
-            <Text
-              style={[
-                typography.body,
-                { color: colors.textPrimary, marginTop: 2 },
-              ]}
-            >
-              {journey.boarding_stop_name || "—"}
-            </Text>
-          </View>
-          <View style={{ marginTop: spacing.lg }}>
-            <Text
-              style={[typography.micro, { color: colors.textSecondary }]}
-            >
-              Exited
-            </Text>
-            <Text
-              style={[
-                typography.body,
-                { color: colors.textPrimary, marginTop: 2 },
-              ]}
-            >
-              {journey.latest_exit_stop_name || "—"}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.footerRow}>
-        <View style={styles.chipRow}>
+    <Pressable
+      style={({ pressed }) => [
+        { marginTop: spacing.lg, transform: [{ scale: pressed ? 0.98 : 1 }] },
+      ]}
+    >
+      <Card style={elevation.sm}>
+        {/* Top row: Route & Date */}
+        <View style={styles.row}>
           <View
             style={[
-              styles.chip,
-              { backgroundColor: (stateColor[journey.journey_state] || colors.textMuted) + "22" },
+              styles.routeBadge,
+              { backgroundColor: colors.primary + "15" },
             ]}
           >
+            <Bus color={colors.primary} size={12} />
             <Text
               style={[
                 typography.micro,
-                { color: stateColor[journey.journey_state] || colors.textMuted },
+                { color: colors.primary, marginLeft: 4, fontWeight: "700" },
               ]}
             >
-              {journey.journey_state}
+              {journey.route_id}
             </Text>
           </View>
-          <View
+          <Text
             style={[
-              styles.chip,
+              typography.bodySm,
               {
-                backgroundColor:
-                  (finColor[journey.financial_state] || colors.textMuted) +
-                  "22",
-                marginLeft: spacing.sm,
+                color: colors.textPrimary,
+                marginLeft: spacing.md,
+                flex: 1,
+                fontWeight: "600",
               },
             ]}
+            numberOfLines={1}
           >
-            <Text
+            {journey.route_name || "Route"}
+          </Text>
+          <Text style={[typography.micro, { color: colors.textMuted }]}>
+            {date.toLocaleDateString(undefined, {
+              day: "numeric",
+              month: "short",
+            })}{" "}
+            ·{" "}
+            {date.toLocaleTimeString(undefined, {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </Text>
+        </View>
+
+        {/* Timeline */}
+        <View style={styles.stopsRow}>
+          <View style={styles.stopLine}>
+            <View style={[styles.dot, { backgroundColor: colors.success }]} />
+            <View style={[styles.line, { backgroundColor: colors.border }]} />
+            <View style={[styles.dot, { backgroundColor: colors.danger }]} />
+          </View>
+          <View style={styles.stopLabels}>
+            <View>
+              <Text style={[typography.micro, { color: colors.textSecondary, textTransform: "uppercase" }]}>
+                Boarded
+              </Text>
+              <Text
+                style={[
+                  typography.bodySm,
+                  { color: colors.textPrimary, fontWeight: "600", marginTop: 2 },
+                ]}
+              >
+                {journey.boarding_stop_name || "—"}
+              </Text>
+            </View>
+            <View style={{ marginTop: spacing.xl }}>
+              <Text style={[typography.micro, { color: colors.textSecondary, textTransform: "uppercase" }]}>
+                Exited
+              </Text>
+              <Text
+                style={[
+                  typography.bodySm,
+                  { color: colors.textPrimary, fontWeight: "600", marginTop: 2 },
+                ]}
+              >
+                {journey.latest_exit_stop_name || "—"}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        {/* Footer */}
+        <View style={styles.footerRow}>
+          <View style={styles.chipRow}>
+            <View
               style={[
-                typography.micro,
+                styles.chip,
                 {
-                  color:
-                    finColor[journey.financial_state] || colors.textMuted,
+                  backgroundColor:
+                    (stateColor[journey.journey_state] || colors.textMuted) +
+                    "15",
                 },
               ]}
             >
-              {journey.financial_state}
+              <Text
+                style={[
+                  typography.micro,
+                  {
+                    color:
+                      stateColor[journey.journey_state] || colors.textMuted,
+                    fontWeight: "600",
+                  },
+                ]}
+              >
+                {journey.journey_state}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.chip,
+                {
+                  backgroundColor:
+                    (finColor[journey.financial_state] || colors.textMuted) +
+                    "15",
+                  marginLeft: spacing.sm,
+                },
+              ]}
+            >
+              {isSettled ? (
+                <CheckCircle2 color={finColor[journey.financial_state]} size={10} />
+              ) : (
+                <Clock color={finColor[journey.financial_state]} size={10} />
+              )}
+              <Text
+                style={[
+                  typography.micro,
+                  {
+                    color:
+                      finColor[journey.financial_state] || colors.textMuted,
+                    marginLeft: 4,
+                    fontWeight: "600",
+                  },
+                ]}
+              >
+                {journey.financial_state}
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={[typography.h3, { color: colors.textPrimary }]}>
+              ₹ {journey.total_fare.toFixed(2)}
             </Text>
+            {isPending && (
+              <Text
+                style={[
+                  typography.micro,
+                  { color: colors.danger, marginTop: 2, fontWeight: "600" },
+                ]}
+              >
+                ₹{journey.outstanding_amount.toFixed(2)} due
+              </Text>
+            )}
           </View>
         </View>
-
-        <View style={{ alignItems: "flex-end" }}>
-          <Text
-            style={[typography.caption, { color: colors.textSecondary }]}
-          >
-            Fare
-          </Text>
-          <Text
-            style={[
-              typography.numericSm,
-              { color: colors.textPrimary, marginTop: 2 },
-            ]}
-          >
-            ₹ {journey.total_fare.toFixed(2)}
-          </Text>
-        </View>
-      </View>
-    </Card>
+      </Card>
+    </Pressable>
   );
 }
 
@@ -315,24 +348,28 @@ const styles = StyleSheet.create({
   },
   row: { flexDirection: "row", alignItems: "center" },
   routeBadge: {
-    paddingHorizontal: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.sm,
     paddingVertical: 4,
-    borderRadius: radii.pill,
+    borderRadius: radii.sm,
   },
   stopsRow: { flexDirection: "row", marginTop: spacing.xl },
   stopLine: { width: 12, alignItems: "center", paddingTop: 4 },
   dot: { width: 8, height: 8, borderRadius: 4 },
-  line: { width: 2, height: 40, marginVertical: 3 },
+  line: { width: 2, height: 36, marginVertical: 3 },
   stopLabels: { marginLeft: spacing.md, flex: 1 },
+  divider: { height: 1, marginVertical: spacing.lg },
   footerRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: spacing.xl,
   },
   chipRow: { flexDirection: "row" },
   chip: {
-    paddingHorizontal: spacing.md,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: radii.pill,
   },

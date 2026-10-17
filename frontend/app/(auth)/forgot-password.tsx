@@ -1,4 +1,5 @@
-﻿import { Link, useRouter } from "expo-router";
+﻿import { BlurView } from "expo-blur";
+import { Link, useRouter } from "expo-router";
 import { ArrowLeft, Mail } from "lucide-react-native";
 import { useState } from "react";
 import {
@@ -18,12 +19,12 @@ import { TextInput } from "../../components/ui/TextInput";
 import { ApiError } from "../../lib/api";
 import * as authApi from "../../lib/auth";
 import { useTheme } from "../../theme/ThemeProvider";
-import { spacing } from "../../theme/tokens";
+import { radii, spacing } from "../../theme/tokens";
 import { typography } from "../../theme/typography";
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
 
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -48,13 +49,15 @@ export default function ForgotPasswordScreen() {
         });
       }, 1200);
     } catch (e) {
-      const msg =
-        e instanceof ApiError ? e.detail : "Could not send reset code";
+      const msg = e instanceof ApiError ? e.detail : "Could not send reset code";
       setError(msg);
     } finally {
       setSubmitting(false);
     }
   }
+
+  const GlassPanel = Platform.OS === "web" ? View : BlurView;
+  const glassProps = Platform.OS === "web" ? {} : { intensity: isDark ? 50 : 70, tint: isDark ? "dark" : "light" };
 
   return (
     <AuthBackground>
@@ -69,11 +72,7 @@ export default function ForgotPasswordScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.inner}>
-              <Pressable
-                onPress={() => router.back()}
-                style={styles.back}
-                hitSlop={10}
-              >
+              <Pressable onPress={() => router.back()} style={styles.back} hitSlop={10}>
                 <ArrowLeft color={colors.textPrimary} size={22} />
               </Pressable>
 
@@ -83,77 +82,61 @@ export default function ForgotPasswordScreen() {
               <Text
                 style={[
                   typography.body,
+                  { color: colors.textSecondary, marginTop: spacing.sm, marginBottom: spacing.xxl },
+                ]}
+              >
+                Enter the email associated with your account. We'll send a 6-digit code to reset your password.
+              </Text>
+
+              <GlassPanel
+                {...glassProps}
+                style={[
+                  styles.glassPanel,
                   {
-                    color: colors.textSecondary,
-                    marginTop: spacing.sm,
-                    marginBottom: spacing.xxl,
+                    borderColor: colors.border,
+                    backgroundColor: Platform.OS === "web" ? colors.surface + "CC" : "transparent",
                   },
                 ]}
               >
-                Enter the email associated with your account. We'll send a
-                6-digit code to reset your password.
-              </Text>
+                <TextInput
+                  label="Email"
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="you@example.com"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  editable={!submitting}
+                  leftIcon={<Mail color={colors.textMuted} size={18} />}
+                />
 
-              <TextInput
-                label="Email"
-                value={email}
-                onChangeText={setEmail}
-                placeholder="you@example.com"
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                editable={!submitting}
-                leftIcon={<Mail color={colors.textMuted} size={18} />}
-              />
+                {error ? (
+                  <Text style={[typography.bodySm, { color: colors.danger, textAlign: "center", marginTop: spacing.lg }]}>
+                    {error}
+                  </Text>
+                ) : null}
+                {info ? (
+                  <Text style={[typography.bodySm, { color: colors.success, textAlign: "center", marginTop: spacing.lg }]}>
+                    {info}
+                  </Text>
+                ) : null}
 
-              {error ? (
-                <Text
-                  style={[
-                    typography.bodySm,
-                    {
-                      color: colors.danger,
-                      textAlign: "center",
-                      marginTop: spacing.lg,
-                    },
-                  ]}
-                >
-                  {error}
-                </Text>
-              ) : null}
-              {info ? (
-                <Text
-                  style={[
-                    typography.bodySm,
-                    {
-                      color: colors.success,
-                      textAlign: "center",
-                      marginTop: spacing.lg,
-                    },
-                  ]}
-                >
-                  {info}
-                </Text>
-              ) : null}
+                <View style={{ height: spacing.xl }} />
 
-              <View style={{ height: spacing.xxl }} />
-
-              <Button
-                label="Send reset code"
-                onPress={onSubmit}
-                loading={submitting}
-                size="lg"
-              />
+                <Button
+                  label="Send reset code"
+                  onPress={onSubmit}
+                  loading={submitting}
+                  size="lg"
+                />
+              </GlassPanel>
 
               <View style={styles.footer}>
-                <Text
-                  style={[typography.body, { color: colors.textSecondary }]}
-                >
+                <Text style={[typography.body, { color: colors.textSecondary }]}>
                   Remembered it?{" "}
                 </Text>
                 <Link href="/login">
-                  <Text
-                    style={[typography.bodyMedium, { color: colors.accent }]}
-                  >
+                  <Text style={[typography.bodyMedium, { color: colors.accent }]}>
                     Sign in
                   </Text>
                 </Link>
@@ -176,6 +159,12 @@ const styles = StyleSheet.create({
   },
   inner: { width: "100%", maxWidth: 440, alignSelf: "center" },
   back: { marginBottom: spacing.xl },
+  glassPanel: {
+    borderRadius: radii.xl,
+    padding: spacing.xl,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
   footer: {
     flexDirection: "row",
     justifyContent: "center",

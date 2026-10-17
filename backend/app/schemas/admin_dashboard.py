@@ -14,14 +14,22 @@ class OverviewResponse(BaseModel):
     revenue_today: float
     revenue_yesterday: float
     revenue_delta_pct: float
+    
     journeys_today: int
     journeys_yesterday: int
     journeys_delta_pct: float
+    
     active_buses: int
     total_buses: int
     active_trips: int
+    
     devices_online: int
     devices_total: int
+    
+    # NEW METRICS
+    total_users: int
+    total_cards: int
+    total_routes: int
 
 
 class FleetBusItem(BaseModel):

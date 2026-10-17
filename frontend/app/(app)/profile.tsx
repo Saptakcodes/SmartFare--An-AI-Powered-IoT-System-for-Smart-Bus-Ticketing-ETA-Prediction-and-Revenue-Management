@@ -1,4 +1,5 @@
-﻿import { useRouter } from "expo-router";
+﻿import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import {
   ChevronRight,
   CreditCard,
@@ -96,16 +97,19 @@ export default function ProfileScreen() {
         {/* User card */}
         <Card style={{ marginTop: spacing.xl }}>
           <View style={styles.userRow}>
-            <View
-              style={[
-                styles.avatar,
-                { backgroundColor: colors.primary + "22" },
-              ]}
+            
+            {/* UPGRADE: Gradient Avatar */}
+            <LinearGradient
+              colors={colors.brandGradient as unknown as string[]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.avatar}
             >
-              <Text style={[typography.h3, { color: colors.primary }]}>
+              <Text style={[typography.h3, { color: "#fff", fontWeight: "700" }]}>
                 {initials}
               </Text>
-            </View>
+            </LinearGradient>
+
             <View style={{ flex: 1, marginLeft: spacing.lg }}>
               <Text
                 style={[typography.h3, { color: colors.textPrimary }]}

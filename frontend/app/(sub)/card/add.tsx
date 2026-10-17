@@ -1,5 +1,5 @@
 ﻿import { useRouter } from "expo-router";
-import { ArrowLeft, CreditCard } from "lucide-react-native";
+import { ArrowLeft, ScanLine } from "lucide-react-native";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -16,7 +16,7 @@ import { Button } from "../../../components/ui/Button";
 import { TextInput } from "../../../components/ui/TextInput";
 import { linkCard } from "../../../lib/cards";
 import { useTheme } from "../../../theme/ThemeProvider";
-import { spacing } from "../../../theme/tokens";
+import { radii, spacing } from "../../../theme/tokens"; // Added radii
 import { typography } from "../../../theme/typography";
 
 export default function AddCardScreen() {
@@ -78,7 +78,7 @@ export default function AddCardScreen() {
                 { color: colors.textPrimary, marginLeft: spacing.lg },
               ]}
             >
-              Add Card
+              Link Card
             </Text>
           </View>
 
@@ -86,15 +86,15 @@ export default function AddCardScreen() {
             <View
               style={[
                 styles.iconWrap,
-                { backgroundColor: colors.primary + "22" },
+                { backgroundColor: colors.primary + "15" },
               ]}
             >
-              <CreditCard color={colors.primary} size={32} />
+              <ScanLine color={colors.primary} size={32} />
             </View>
 
             <Text
               style={[
-                typography.h3,
+                typography.h2,
                 {
                   color: colors.textPrimary,
                   marginTop: spacing.xl,
@@ -102,7 +102,7 @@ export default function AddCardScreen() {
                 },
               ]}
             >
-              Enter your card UID
+              Add a Transit Card
             </Text>
             <Text
               style={[
@@ -111,13 +111,39 @@ export default function AddCardScreen() {
                   color: colors.textSecondary,
                   textAlign: "center",
                   marginTop: spacing.sm,
-                  marginBottom: spacing.xxl,
+                  marginBottom: spacing.xxxl,
                 },
               ]}
             >
-              You'll find the UID printed on the back of your SmartFare card.
-              It's usually 8 to 24 characters.
+              Scan the QR code or type the UID printed on the back of your card.
             </Text>
+
+            {/* NEW: Scan QR Code Button */}
+            <Pressable
+              onPress={() => router.push("/card/scan")}
+              style={({ pressed }) => [
+                styles.scanBtn, 
+                { 
+                  backgroundColor: colors.surface, 
+                  borderColor: colors.border,
+                  opacity: pressed ? 0.8 : 1 
+                }
+              ]}
+            >
+              <ScanLine color={colors.accent} size={20} />
+              <Text style={[typography.bodyMedium, { color: colors.textPrimary, marginLeft: spacing.sm, fontWeight: "600" }]}>
+                Scan QR Code
+              </Text>
+            </Pressable>
+
+            {/* NEW: Divider */}
+            <View style={styles.dividerRow}>
+              <View style={[styles.line, { backgroundColor: colors.border }]} />
+              <Text style={[typography.caption, { color: colors.textMuted, marginHorizontal: spacing.md, fontWeight: "600" }]}>
+                OR ENTER MANUALLY
+              </Text>
+              <View style={[styles.line, { backgroundColor: colors.border }]} />
+            </View>
 
             <TextInput
               label="Card UID"
@@ -127,7 +153,7 @@ export default function AddCardScreen() {
               autoCapitalize="characters"
               autoCorrect={false}
               editable={!submitting}
-              leftIcon={<CreditCard color={colors.textMuted} size={18} />}
+              style={{ textAlign: "center", letterSpacing: 4, fontSize: 20 }}
             />
 
             {error ? (
@@ -162,7 +188,7 @@ export default function AddCardScreen() {
             <View style={{ height: spacing.xxl }} />
 
             <Button
-              label="Link Card"
+              label="Link Card Manually"
               onPress={onSubmit}
               loading={submitting}
               size="lg"
@@ -197,5 +223,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",
+  },
+  scanBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.lg,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+  },
+  dividerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: spacing.xl,
+  },
+  line: {
+    flex: 1,
+    height: 1,
   },
 });

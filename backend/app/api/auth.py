@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.models import Notification
 from app.api.deps import get_current_user
 from app.core.config import settings
 from app.core.security import (
@@ -112,6 +112,12 @@ async def verify_otp_endpoint(
         raise HTTPException(status_code=400, detail=str(e))
 
     user.is_verified = True
+    db.add(Notification(
+    user_id=user.user_id,
+    title="Welcome to SmartFare",
+    body="Your account is verified. Link your RFID card to start riding.",
+    type="info"
+))
     await db.commit()
     await db.refresh(user)
 

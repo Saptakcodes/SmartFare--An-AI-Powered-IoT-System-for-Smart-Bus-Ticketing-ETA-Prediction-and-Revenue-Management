@@ -1,6 +1,6 @@
 import { Bell, Search } from "lucide-react-native";
 import React from "react";
-import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { useTheme } from "../../theme/ThemeProvider";
 import { radii, spacing } from "../../theme/tokens";
@@ -14,64 +14,35 @@ interface Props {
 export function AdminTopBar({ title, adminEmail }: Props) {
   const { colors } = useTheme();
 
-  const initials = adminEmail
-    .split("@")[0]
-    .slice(0, 2)
-    .toUpperCase();
+  const initials = adminEmail.split("@")[0].slice(0, 2).toUpperCase();
 
   return (
-    <View
-      style={[
-        styles.bar,
-        {
-          backgroundColor: colors.bg,
-          borderBottomColor: colors.border,
-        },
-      ]}
-    >
+    <View style={[styles.bar, { backgroundColor: colors.bg, borderBottomColor: colors.border }]}>
       <View style={styles.left}>
-        <Text style={[typography.h3, { color: colors.textPrimary }]}>
-          {title}
-        </Text>
+        <Text style={[typography.h3, { color: colors.textPrimary }]}>{title}</Text>
       </View>
 
       <View style={styles.right}>
-        <View
-          style={[
-            styles.searchBox,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
+        <View style={[styles.searchBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Search color={colors.textMuted} size={15} />
           <TextInput
-            placeholder="Search…"
+            placeholder="Search journeys, buses..."
             placeholderTextColor={colors.textMuted}
             style={[
               typography.bodySm,
               styles.searchInput,
               { color: colors.textPrimary },
+              Platform.OS === "web" && { outlineStyle: "none" as any }, // Fix white box on web
             ]}
           />
         </View>
 
-        <Pressable
-          style={[
-            styles.iconBtn,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
+        <Pressable style={[styles.iconBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Bell color={colors.textSecondary} size={16} />
-          <View
-            style={[styles.badgeDot, { backgroundColor: colors.accent }]}
-          />
+          <View style={[styles.badgeDot, { backgroundColor: colors.accent }]} />
         </Pressable>
 
-        <View
-          style={[
-            styles.avatar,
-            { backgroundColor: colors.primary + "22" },
-          ]}
-        >
+        <View style={[styles.avatar, { backgroundColor: colors.primary + "22" }]}>
           <Text style={[typography.caption, { color: colors.primary, fontWeight: "700" }]}>
             {initials}
           </Text>
@@ -99,12 +70,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    minWidth: 220,
+    width: 280, // Widened from 220
     gap: spacing.sm,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 4,
+    paddingVertical: 2,
   },
   iconBtn: {
     width: 36,

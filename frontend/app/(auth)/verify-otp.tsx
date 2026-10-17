@@ -1,4 +1,5 @@
-﻿import { useLocalSearchParams, useRouter } from "expo-router";
+﻿import { BlurView } from "expo-blur";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
@@ -19,7 +20,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { ApiError } from "../../lib/api";
 import * as authApi from "../../lib/auth";
 import { useTheme } from "../../theme/ThemeProvider";
-import { spacing } from "../../theme/tokens";
+import { radii, spacing } from "../../theme/tokens";
 import { typography } from "../../theme/typography";
 
 const RESEND_COOLDOWN = 60;
@@ -29,7 +30,7 @@ export default function VerifyOtpScreen() {
   const params = useLocalSearchParams<{ email?: string }>();
   const email = typeof params.email === "string" ? params.email : "";
 
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { refreshUser } = useAuth();
 
   const [otp, setOtp] = useState("");
@@ -85,6 +86,9 @@ export default function VerifyOtpScreen() {
 
   const resendDisabled = cooldown > 0 || resending;
 
+  const GlassPanel = Platform.OS === "web" ? View : BlurView;
+  const glassProps = Platform.OS === "web" ? {} : { intensity: isDark ? 50 : 70, tint: isDark ? "dark" : "light" };
+
   return (
     <AuthBackground>
       <SafeAreaView style={styles.flex}>
@@ -112,60 +116,47 @@ export default function VerifyOtpScreen() {
               <Text
                 style={[
                   typography.body,
-                  {
-                    color: colors.textSecondary,
-                    marginTop: spacing.sm,
-                    marginBottom: spacing.xxl,
-                  },
+                  { color: colors.textSecondary, marginTop: spacing.sm, marginBottom: spacing.xxl },
                 ]}
               >
                 We sent a 6-digit code to{"\n"}
-                <Text
-                  style={{ color: colors.textPrimary, fontWeight: "600" }}
-                >
+                <Text style={{ color: colors.textPrimary, fontWeight: "600" }}>
                   {email}
                 </Text>
               </Text>
 
-              <OTPInput value={otp} onChange={setOtp} autoFocus />
+              <GlassPanel
+                {...glassProps}
+                style={[
+                  styles.glassPanel,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: Platform.OS === "web" ? colors.surface + "CC" : "transparent",
+                  },
+                ]}
+              >
+                <OTPInput value={otp} onChange={setOtp} autoFocus />
 
-              {error ? (
-                <Text
-                  style={[
-                    typography.bodySm,
-                    {
-                      color: colors.danger,
-                      textAlign: "center",
-                      marginTop: spacing.lg,
-                    },
-                  ]}
-                >
-                  {error}
-                </Text>
-              ) : null}
-              {info ? (
-                <Text
-                  style={[
-                    typography.bodySm,
-                    {
-                      color: colors.success,
-                      textAlign: "center",
-                      marginTop: spacing.lg,
-                    },
-                  ]}
-                >
-                  {info}
-                </Text>
-              ) : null}
+                {error ? (
+                  <Text style={[typography.bodySm, { color: colors.danger, textAlign: "center", marginTop: spacing.lg }]}>
+                    {error}
+                  </Text>
+                ) : null}
+                {info ? (
+                  <Text style={[typography.bodySm, { color: colors.success, textAlign: "center", marginTop: spacing.lg }]}>
+                    {info}
+                  </Text>
+                ) : null}
 
-              <View style={{ height: spacing.xxl }} />
+                <View style={{ height: spacing.xl }} />
 
-              <Button
-                label="Verify"
-                onPress={onVerify}
-                loading={submitting}
-                size="lg"
-              />
+                <Button
+                  label="Verify"
+                  onPress={onVerify}
+                  loading={submitting}
+                  size="lg"
+                />
+              </GlassPanel>
 
               <Pressable
                 style={styles.resendRow}
@@ -175,9 +166,7 @@ export default function VerifyOtpScreen() {
                 <Text
                   style={[
                     typography.bodyMedium,
-                    {
-                      color: resendDisabled ? colors.textMuted : colors.accent,
-                    },
+                    { color: resendDisabled ? colors.textMuted : colors.accent },
                   ]}
                 >
                   {resending
@@ -205,6 +194,12 @@ const styles = StyleSheet.create({
   },
   inner: { width: "100%", maxWidth: 440, alignSelf: "center" },
   back: { marginBottom: spacing.xl },
+  glassPanel: {
+    borderRadius: radii.xl,
+    padding: spacing.xl,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
   resendRow: {
     alignSelf: "center",
     marginTop: spacing.xl,
