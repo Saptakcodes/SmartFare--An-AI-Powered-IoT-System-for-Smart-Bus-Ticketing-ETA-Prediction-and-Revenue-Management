@@ -7,6 +7,11 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "smartfare",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#050B1E"
+    },
     "experiments": {
       "typedRoutes": true
     },
@@ -14,11 +19,10 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.smartfare.smartfare",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#050B1E"
       },
       "predictiveBackGestureEnabled": false
     },
@@ -29,7 +33,19 @@
       "expo-router",
       "expo-status-bar",
       "expo-secure-store",
-      "expo-image"
-    ]
+      "expo-image",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow SmartFare to access your camera to scan QR tickets."
+        }
+      ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6dae71d2-a766-47c8-8f5a-26abd307a940"
+      }
+    }
   }
 }
