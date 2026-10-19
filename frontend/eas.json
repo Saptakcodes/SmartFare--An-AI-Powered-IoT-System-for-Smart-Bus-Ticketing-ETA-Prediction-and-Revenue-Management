@@ -10,12 +10,14 @@
       },
       "env": {
         "EXPO_PUBLIC_API_URL": "https://smartfare-service.onrender.com"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
       "env": {
         "EXPO_PUBLIC_API_URL": "https://smartfare-service.onrender.com"
-      }
+      },
+      "channel": "production"
     }
   }
 }

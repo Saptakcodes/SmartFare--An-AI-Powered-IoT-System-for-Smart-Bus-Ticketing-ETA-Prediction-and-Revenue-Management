@@ -21,6 +21,9 @@ async def buy_ticket(
     current: Annotated[User, Depends(get_current_user)],
 ):
     # 1. Look up fare
+        # 1. Look up fare
+    print(f"DEBUG RENDER: Route={payload.route_id}, From={payload.from_stop_id}, To={payload.to_stop_id}")
+    
     fare = await db.scalar(
         select(Fare.amount).where(
             Fare.route_id == payload.route_id,
@@ -28,12 +31,11 @@ async def buy_ticket(
             Fare.to_stop_id == payload.to_stop_id
         )
     )
+    
+    print(f"DEBUG RENDER: Fare found = {fare}")
+    
     if not fare:
-        raise HTTPException(400, "Fare not found for this route")
-
-    # 2. Check balance
-    if float(current.balance) < float(fare):
-        raise HTTPException(400, "Insufficient wallet balance. Please top up.")
+        raise HTTPException(400, f"Fare not found for route={payload.route_id}, from={payload.from_stop_id}, to={payload.to_stop_id}")
 
     # 3. Deduct balance
     current.balance = float(current.balance) - float(fare)

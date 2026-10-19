@@ -109,13 +109,17 @@ export default function LoginScreen() {
                   leftIcon={<Lock color={colors.textMuted} size={18} />}
                 />
 
+                {/* FIX: flex containers to prevent clipping */}
                 <View style={styles.rowBetween}>
-                  <Checkbox
-                    checked={rememberMe}
-                    onChange={setRememberMe}
-                    label="Remember me"
-                  />
+                  <View style={{ flex: 1 }}>
+                    <Checkbox
+                      checked={rememberMe}
+                      onChange={setRememberMe}
+                      label="Remember me"
+                    />
+                  </View>
                   <Pressable
+                    style={{ flexShrink: 0 }}
                     onPress={() => router.push("/forgot-password")}
                     disabled={submitting}
                   >
