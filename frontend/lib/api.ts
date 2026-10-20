@@ -1,5 +1,4 @@
 ﻿import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import { Platform } from "react-native";
 
 function getApiUrl(): string {
@@ -14,7 +13,8 @@ function getApiUrl(): string {
   return "http://localhost:8000";
 }
 
-const API_URL = getApiUrl();
+// THE FIX: Added 'export' here
+export const API_URL = getApiUrl();
 
 export const ACCESS_TOKEN_KEY = "smartfare.access_token";
 export const REFRESH_TOKEN_KEY = "smartfare.refresh_token";
