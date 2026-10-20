@@ -5,7 +5,6 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Correct imports for the conductor folder
 import { validateTicket } from "../../lib/admin";
 import { useAdminAuth } from "../../contexts/AdminAuthContext";
 import { useTheme } from "../../theme/ThemeProvider";
@@ -70,7 +69,11 @@ export default function ConductorScannerScreen() {
     try {
       await validateTicket(data, tripId);
       setStatus("✅ Ticket Validated!");
-      setTimeout(() => { setScanned(false); setStatus(null); setManualToken(""); }, 3000);
+      setTimeout(() => { 
+        setScanned(false); 
+        setStatus(null); 
+        setManualToken(""); 
+      }, 3000);
     } catch (e: any) {
       console.log("VALIDATION ERROR:", e); 
       setStatus(`❌ ${e?.detail || e?.message || "Network Error"}`);
@@ -80,14 +83,21 @@ export default function ConductorScannerScreen() {
 
   return (
     <View style={styles.flex}>
-      <CameraView
-        style={StyleSheet.absoluteFill}
-        facing="back"
-        onBarcodeScanned={scanned ? undefined : ({ data }) => handleScan(data)}
-        barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-      />
       
-      <SafeAreaView style={styles.overlay}>
+      {/* 
+        WEB FIX: Wrapping CameraView in an absolute fill View 
+        prevents the Vercel web browser from crashing with "Expected value to be of type number"
+      */}
+      <View style={StyleSheet.absoluteFill}>
+        <CameraView
+          style={StyleSheet.absoluteFill}
+          facing="back"
+          onBarcodeScanned={scanned ? undefined : ({ data }) => handleScan(data)}
+          barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+        />
+      </View>
+      
+      <SafeAreaView style={styles.overlay} pointerEvents="box-none">
         <View style={styles.topBar}>
           <Text style={[typography.h3, { color: "#fff" }]}>Conductor Mode</Text>
           
@@ -100,8 +110,8 @@ export default function ConductorScannerScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.center}>
-           {!scanned && <ScanLine color="#fff" size={150} strokeWidth={1} />}
+        <View style={styles.center} pointerEvents="none">
+           {!scanned && <ScanLine color="#00FF00" size={150} strokeWidth={2} />}
            {status && (
              <View style={styles.statusBox}>
                <Text style={[typography.h2, { color: "#fff", textAlign: "center" }]}>{status}</Text>
@@ -119,7 +129,7 @@ export default function ConductorScannerScreen() {
             style={styles.input}
           />
 
-          <Text style={[typography.caption, { color: "#fff", marginTop: 10 }]}>Manual QR Token (For Testing)</Text>
+          <Text style={[typography.caption, { color: "#fff", marginTop: 10 }]}>Manual QR Token (Fallback)</Text>
           <TextInput
             placeholder="Paste QR token here"
             placeholderTextColor="#aaaaaa"
