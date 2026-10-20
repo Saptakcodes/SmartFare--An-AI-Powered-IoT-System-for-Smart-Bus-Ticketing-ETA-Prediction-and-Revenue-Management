@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Correct imports for this folder level
+// Correct imports for the conductor folder
 import { validateTicket } from "../../lib/admin";
 import { useAdminAuth } from "../../contexts/AdminAuthContext";
 import { useTheme } from "../../theme/ThemeProvider";
@@ -20,7 +20,7 @@ export default function ConductorScannerScreen() {
   
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
-  const [tripId, setTripId] = useState("b827eb-20261017-001"); // Pre-filled for you
+  const [tripId, setTripId] = useState("b827eb-20261017-001");
   const [manualToken, setManualToken] = useState("");
   const [status, setStatus] = useState<string | null>(null);
 
@@ -91,7 +91,6 @@ export default function ConductorScannerScreen() {
         <View style={styles.topBar}>
           <Text style={[typography.h3, { color: "#fff" }]}>Conductor Mode</Text>
           
-          {/* RED LOGOUT BUTTON */}
           <Pressable 
             onPress={() => { signOut(); router.replace("/admin/login"); }}
             style={{ backgroundColor: "#ff4444", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
@@ -120,7 +119,6 @@ export default function ConductorScannerScreen() {
             style={styles.input}
           />
 
-          {/* MANUAL INPUT FOR TESTING */}
           <Text style={[typography.caption, { color: "#fff", marginTop: 10 }]}>Manual QR Token (For Testing)</Text>
           <TextInput
             placeholder="Paste QR token here"
@@ -136,7 +134,6 @@ export default function ConductorScannerScreen() {
             <Text style={{ color: "#fff", fontWeight: "bold" }}>Validate Manually</Text>
           </Pressable>
 
-          {/* DEBUG TEXT FOR URL */}
           <Text style={{ color: "#aaa", fontSize: 10, marginTop: 10, textAlign: "center" }}>
             Connecting to: {API_URL}
           </Text>

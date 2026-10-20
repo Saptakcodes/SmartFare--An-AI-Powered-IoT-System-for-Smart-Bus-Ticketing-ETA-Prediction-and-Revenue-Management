@@ -5,11 +5,13 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+// Correct imports for the conductor folder
 import { validateTicket } from "../../lib/admin";
 import { useAdminAuth } from "../../contexts/AdminAuthContext";
 import { useTheme } from "../../theme/ThemeProvider";
 import { spacing } from "../../theme/tokens";
 import { typography } from "../../theme/typography";
+import { API_URL } from "../../lib/api";
 
 export default function ConductorScannerScreen() {
   const { admin, signOut } = useAdminAuth();
@@ -18,18 +20,15 @@ export default function ConductorScannerScreen() {
   
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
-  const [tripId, setTripId] = useState("");
+  const [tripId, setTripId] = useState("b827eb-20261017-001");
+  const [manualToken, setManualToken] = useState("");
   const [status, setStatus] = useState<string | null>(null);
 
-  // If not logged in, show message instead of infinite redirect
   if (!admin) {
     return (
       <View style={[styles.flex, { backgroundColor: colors.bg, justifyContent: "center", alignItems: "center", padding: spacing.xl }]}>
         <Text style={[typography.h3, { color: colors.textPrimary, textAlign: "center" }]}>
           Admin Login Required
-        </Text>
-        <Text style={[typography.body, { color: colors.textSecondary, textAlign: "center", marginTop: spacing.md }]}>
-          Please log in to the Admin Dashboard first, then return to this screen.
         </Text>
         <Pressable 
           onPress={() => router.push("/admin/login")} 
@@ -56,18 +55,26 @@ export default function ConductorScannerScreen() {
     );
   }
 
-  async function handleScan({ data }: { data: string }) {
-    if (scanned || !tripId) return;
+  async function handleScan(data: string) {
+    if (!tripId) {
+      setStatus("❌ Please enter Trip ID first!");
+      setTimeout(() => setStatus(null), 3000);
+      return;
+    }
+    
+    if (scanned || !data) return;
+    
     setScanned(true);
     setStatus("Validating...");
 
     try {
       await validateTicket(data, tripId);
       setStatus("✅ Ticket Validated!");
-      setTimeout(() => { setScanned(false); setStatus(null); }, 3000);
+      setTimeout(() => { setScanned(false); setStatus(null); setManualToken(""); }, 3000);
     } catch (e: any) {
-      setStatus(`❌ ${e?.detail || "Invalid Ticket"}`);
-      setTimeout(() => { setScanned(false); setStatus(null); }, 3000);
+      console.log("VALIDATION ERROR:", e); 
+      setStatus(`❌ ${e?.detail || e?.message || "Network Error"}`);
+      setTimeout(() => { setScanned(false); setStatus(null); }, 4000);
     }
   }
 
@@ -76,15 +83,20 @@ export default function ConductorScannerScreen() {
       <CameraView
         style={StyleSheet.absoluteFill}
         facing="back"
-        onBarcodeScanned={scanned ? undefined : handleScan}
+        onBarcodeScanned={scanned ? undefined : ({ data }) => handleScan(data)}
         barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
       />
       
       <SafeAreaView style={styles.overlay}>
         <View style={styles.topBar}>
           <Text style={[typography.h3, { color: "#fff" }]}>Conductor Mode</Text>
-          <Pressable onPress={() => { signOut(); router.replace("/admin/login"); }}>
-            <LogOut color="#fff" size={20} />
+          
+          <Pressable 
+            onPress={() => { signOut(); router.replace("/admin/login"); }}
+            style={{ backgroundColor: "#ff4444", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+          >
+            <LogOut color="#fff" size={16} />
+            <Text style={{ color: "#fff", marginLeft: 6, fontWeight: "bold" }}>LOGOUT</Text>
           </Pressable>
         </View>
 
@@ -106,6 +118,25 @@ export default function ConductorScannerScreen() {
             onChangeText={setTripId}
             style={styles.input}
           />
+
+          <Text style={[typography.caption, { color: "#fff", marginTop: 10 }]}>Manual QR Token (For Testing)</Text>
+          <TextInput
+            placeholder="Paste QR token here"
+            placeholderTextColor="#aaaaaa"
+            value={manualToken}
+            onChangeText={setManualToken}
+            style={styles.input}
+          />
+          <Pressable
+            onPress={() => handleScan(manualToken)}
+            style={{ backgroundColor: "#4CAF50", padding: 12, borderRadius: 8, marginTop: 10, alignItems: "center" }}
+          >
+            <Text style={{ color: "#fff", fontWeight: "bold" }}>Validate Manually</Text>
+          </Pressable>
+
+          <Text style={{ color: "#aaa", fontSize: 10, marginTop: 10, textAlign: "center" }}>
+            Connecting to: {API_URL}
+          </Text>
         </View>
       </SafeAreaView>
     </View>
