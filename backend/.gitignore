@@ -5,3 +5,16 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 *.log
+
+# Credential-heavy local scripts
+seed_route.py
+fix_fares.py
+fix_reverse_fares.py
+migrate_to_R001.py
+diagnose_fare.py
+verify_fares.py
+test_db.py
+test_db_1.py
+test_geo.py
+test_models.py
+test_sqlalchemy.py
