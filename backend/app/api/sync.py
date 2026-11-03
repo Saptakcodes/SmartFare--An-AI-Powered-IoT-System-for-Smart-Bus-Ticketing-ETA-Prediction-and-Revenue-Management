@@ -158,7 +158,9 @@ async def sync_events(
                     await db.flush()
                     await handle_rfid_event(db, rfid_event)
                 else:
+                    # INDUSTRY STANDARD FIX: Unknown card. Keep EPC, nullify rfid_id to avoid FK constraint failure
                     rfid_event.event_type = "UNKNOWN"
+                    rfid_event.rfid_id = None 
                     await db.commit()
 
             elif env.event_type == "TRANSACTION":
