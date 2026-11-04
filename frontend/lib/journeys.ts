@@ -22,3 +22,17 @@ export interface Journey {
 export function listMyJourneys(): Promise<Journey[]> {
   return apiRequest<Journey[]>("/journeys/me", { auth: true });
 }
+
+export interface ActiveJourney {
+  journey_id: string;
+  bus_id: string;
+  route_name: string;
+  boarding_stop: string;
+  is_physical_card: boolean;
+  started_at: string;
+  financial_state: string;
+}
+
+export function getActiveJourney(): Promise<ActiveJourney | null> {
+  return apiRequest<ActiveJourney | null>("/journeys/active", { auth: true });
+}

@@ -1,8 +1,9 @@
 ﻿import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import {
   ArrowRight,
   Bell,
+  CheckCircle,
   CreditCard,
   History,
   LogOut,
@@ -14,7 +15,7 @@ import {
   TrendingUp,
   Wallet as WalletIcon,
 } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AnimatedBlobs } from "../../components/ui/AnimatedBlobs";
@@ -23,6 +24,7 @@ import { CountUp } from "../../components/ui/CountUp";
 import { Logo } from "../../components/ui/Logo";
 import { Screen } from "../../components/ui/Screen";
 import { useAuth } from "../../contexts/AuthContext";
+import { getActiveJourney, ActiveJourney } from "../../lib/journeys";
 import { useTheme } from "../../theme/ThemeProvider";
 import { elevation, radii, spacing } from "../../theme/tokens";
 import { typography } from "../../theme/typography";
@@ -46,11 +48,29 @@ export default function HomeScreen() {
   const { user, signOut } = useAuth();
   const { colors } = useTheme();
   const [greeting, setGreeting] = useState(getGreeting());
+  const [activeJourney, setActiveJourney] = useState<ActiveJourney | null>(null);
 
   useEffect(() => {
     const id = setInterval(() => setGreeting(getGreeting()), 60000);
     return () => clearInterval(id);
   }, []);
+
+  // Check for active journey every time the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      async function fetchJourney() {
+        try {
+          const journey = await getActiveJourney();
+          if (isActive) setActiveJourney(journey);
+        } catch (e) {
+          // Ignore network errors for this check
+        }
+      }
+      fetchJourney();
+      return () => { isActive = false; };
+    }, [])
+  );
 
   if (!user) return null;
 
@@ -123,6 +143,43 @@ export default function HomeScreen() {
             </Pressable>
           </View>
         </View>
+
+        {/* 🟢 THE "DIGITAL BOARDING PASS" POPUP */}
+        {activeJourney && (
+          <View style={styles.activeBanner}>
+            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: spacing.sm }}>
+              <CheckCircle color="#fff" size={28} />
+              <Text style={{ color: "#fff", fontSize: 20, fontWeight: "bold", marginLeft: 10 }}>
+                Currently Onboard
+              </Text>
+            </View>
+            
+            <Text style={{ color: "#e0f2f1", fontSize: 14, marginBottom: 5 }}>
+              Bus: {activeJourney.bus_id} | Route: {activeJourney.route_name}
+            </Text>
+            <Text style={{ color: "#e0f2f1", fontSize: 14, marginBottom: 15 }}>
+              Boarded at: {activeJourney.boarding_stop}
+            </Text>
+
+            <View style={styles.methodBox}>
+              {activeJourney.is_physical_card ? (
+                <>
+                  <CreditCard color="#fff" size={20} />
+                  <Text style={styles.methodText}>Physical RFID Card Tapped</Text>
+                </>
+              ) : (
+                <>
+                  <Ticket color="#fff" size={20} />
+                  <Text style={styles.methodText}>Digital Ticket Scanned</Text>
+                </>
+              )}
+            </View>
+            
+            <Text style={{ color: "#fff", fontSize: 12, textAlign: "center", marginTop: 10, opacity: 0.8 }}>
+              Show this screen to the conductor to verify your journey.
+            </Text>
+          </View>
+        )}
 
         {/* Greeting */}
         <View style={styles.greeting}>
@@ -281,4 +338,31 @@ const styles = StyleSheet.create({
   statusRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   statusPill: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radii.pill },
   dot: { width: 6, height: 6, borderRadius: 3 },
+  
+  // ACTIVE JOURNEY BANNER STYLES
+  activeBanner: {
+    backgroundColor: "#2E7D32", // Deep Green
+    padding: spacing.xl,
+    borderRadius: radii.xl,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    marginTop: spacing.xl,
+  },
+  methodBox: {
+    backgroundColor: "rgba(255,255,255,0.2)",
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.md,
+    borderRadius: radii.md,
+    justifyContent: "center",
+  },
+  methodText: {
+    color: "#fff",
+    fontWeight: "bold",
+    marginLeft: spacing.sm,
+    fontSize: 16,
+  },
 });

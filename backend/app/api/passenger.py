@@ -12,7 +12,7 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import (
     Journey,
-    Notification,  # Added
+    Notification,
     RFIDCard,
     Route,
     RouteStop,
@@ -301,6 +301,40 @@ async def my_journeys(
         )
         for j in journeys
     ]
+
+
+@router.get("/journeys/active")
+async def get_active_journey(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+):
+    journey = await db.scalar(
+        select(Journey)
+        .where(
+            Journey.user_id == current.user_id,
+            Journey.journey_state.in_(["ACTIVE", "POSSIBLE_EXIT"])
+        )
+        .order_by(Journey.started_at.desc())
+    )
+    
+    if not journey:
+        return None
+
+    # Determine if they used a physical card or digital ticket
+    is_physical_card = not journey.rfid_id.startswith("VIRTUAL-")
+
+    route = await db.scalar(select(Route).where(Route.route_id == journey.route_id))
+    stop = await db.scalar(select(Stop).where(Stop.stop_id == journey.boarding_stop_id))
+
+    return {
+        "journey_id": str(journey.journey_id),
+        "bus_id": journey.bus_id,
+        "route_name": route.name if route else journey.route_id,
+        "boarding_stop": stop.name if stop else "Unknown",
+        "is_physical_card": is_physical_card,
+        "started_at": journey.started_at.isoformat(),
+        "financial_state": journey.financial_state,
+    }
 
 
 # ---------------------------------------------------------------------------
