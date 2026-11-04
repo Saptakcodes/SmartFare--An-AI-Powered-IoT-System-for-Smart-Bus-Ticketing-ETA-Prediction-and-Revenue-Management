@@ -102,3 +102,11 @@ class EndTripResponse(BaseModel):
     message: str
     trip_id: str
     journeys_closed: int
+
+class TripPassengerItem(BaseModel):
+    journey_id: str
+    user_email: str
+    boarding_stop_name: str | None
+    started_at: datetime
+    is_physical_card: bool
+    fare_collected: float

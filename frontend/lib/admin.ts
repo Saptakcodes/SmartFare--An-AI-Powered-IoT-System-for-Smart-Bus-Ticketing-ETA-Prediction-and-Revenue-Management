@@ -143,3 +143,16 @@ export function forceEndTrip(trip_id: string): Promise<EndTripResponse> {
     method: "POST",
   });
 }
+
+export interface TripPassenger {
+  journey_id: string;
+  user_email: string;
+  boarding_stop_name: string | null;
+  started_at: string;
+  is_physical_card: boolean;
+  fare_collected: number;
+}
+
+export function getTripPassengers(trip_id: string): Promise<TripPassenger[]> {
+  return adminRequest<TripPassenger[]>(`/admin/dashboard/trips/${trip_id}/passengers`);
+}

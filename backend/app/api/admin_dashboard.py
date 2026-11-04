@@ -5,6 +5,9 @@ from fastapi import APIRouter, Depends, Query, HTTPException # <--- ADDED HTTPEx
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.schemas.admin_dashboard import TripPassengerItem
+from app.models import User, Stop, Journey
+
 from app.schemas.admin_dashboard import ActiveTripItem, EndTripResponse
 from app.services.trip_service import end_trip
 from app.models import Trip, DeviceStatus
@@ -370,3 +373,37 @@ async def force_end_trip(
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/trips/{trip_id}/passengers", response_model=list[TripPassengerItem])
+async def get_trip_passengers(
+    trip_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[Admin, Depends(get_current_admin)],
+):
+    """Fetch the live manifest of active passengers on this trip."""
+    
+    # Query Journeys joined with Users and Stops
+    rows = (
+        await db.execute(
+            select(Journey, User.email, Stop.name)
+            .join(User, User.user_id == Journey.user_id)
+            .outerjoin(Stop, Stop.stop_id == Journey.boarding_stop_id)
+            .where(
+                Journey.trip_id == trip_id,
+                Journey.journey_state.in_(["ACTIVE", "POSSIBLE_EXIT"])
+            )
+            .order_by(Journey.started_at.desc())
+        )
+    ).all()
+
+    return [
+        TripPassengerItem(
+            journey_id=str(r[0].journey_id),
+            user_email=r[1],
+            boarding_stop_name=r[2] or "Unknown Stop",
+            started_at=r[0].started_at,
+            is_physical_card=not r[0].rfid_id.startswith("VIRTUAL-"),
+            fare_collected=float(r[0].amount_collected or 0),
+        )
+        for r in rows
+    ]

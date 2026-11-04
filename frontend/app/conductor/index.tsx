@@ -1,6 +1,6 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
-import { ScanLine, LogOut } from "lucide-react-native";
+import { ScanLine, LogOut, Users } from "lucide-react-native";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -101,13 +101,25 @@ export default function ConductorScannerScreen() {
         <View style={styles.topBar}>
           <Text style={[typography.h3, { color: "#fff" }]}>Conductor Mode</Text>
           
-          <Pressable 
-            onPress={() => { signOut(); router.replace("/admin/login"); }}
-            style={{ backgroundColor: "#ff4444", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
-          >
-            <LogOut color="#fff" size={16} />
-            <Text style={{ color: "#fff", marginLeft: 6, fontWeight: "bold" }}>LOGOUT</Text>
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            {/* NEW MANIFEST BUTTON WITH OBJECT SYNTAX FIX */}
+            <Pressable 
+              onPress={() => router.push({ pathname: "/conductor/manifest", params: { trip_id: tripId } })}
+              style={{ backgroundColor: "#2196F3", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+            >
+              <Users color="#fff" size={16} />
+              <Text style={{ color: "#fff", marginLeft: 6, fontWeight: "bold" }}>MANIFEST</Text>
+            </Pressable>
+
+            {/* EXISTING LOGOUT BUTTON */}
+            <Pressable 
+              onPress={() => { signOut(); router.replace("/admin/login"); }}
+              style={{ backgroundColor: "#ff4444", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, flexDirection: 'row', alignItems: 'center' }}
+            >
+              <LogOut color="#fff" size={16} />
+              <Text style={{ color: "#fff", marginLeft: 6, fontWeight: "bold" }}>LOGOUT</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.center} pointerEvents="none">
