@@ -9,14 +9,14 @@ The journey is charged incrementally:
 - POSSIBLE_EXIT at stop X: look up fare(boarding, X)
     - if greater than what was already collected → charge difference
     - if same or less → no extra charge
-- Insufficient balance → journey stays PARTIAL, no transaction created
+- Negative balance allowed: If balance drops below 0, block RFID card.
 """
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Fare, Journey, Transaction, User
+from app.models import Fare, Journey, Transaction, User, RFIDCard, Notification
 
 
 async def lookup_fare(
@@ -43,8 +43,7 @@ async def settle_possible_exit(
 ) -> dict:
     """
     Progressively settle fare when a new possible-exit is detected.
-
-    Returns a summary dict for logging/response.
+    Allows negative balance (overdraft) and blocks the card if it goes below 0.
     """
     if not journey.boarding_stop_id:
         return {"status": "NO_BOARDING_STOP", "additional": 0.0}
@@ -79,30 +78,35 @@ async def settle_possible_exit(
 
     user_balance = Decimal(user.balance or 0)
 
-    if user_balance < additional:
-        # Reject additional charge; journey stays partial
-        journey.latest_exit_stop_id = new_exit_stop_id
-        journey.total_fare = new_total
-        journey.outstanding_amount = new_total - already
-        journey.financial_state = "PARTIAL"
-        await db.commit()
-        return {
-            "status": "INSUFFICIENT_BALANCE",
-            "additional": float(additional),
-            "balance": float(user_balance),
-        }
-
-    # Deduct
+    # 1. Deduct the fare (Allow negative balance)
     user.balance = user_balance - additional
     journey.amount_collected = already + additional
     journey.total_fare = new_total
     journey.latest_exit_stop_id = new_exit_stop_id
-    journey.latest_exit_at = journey.latest_exit_at  # set by caller
-    journey.outstanding_amount = new_total - (already + additional)
-    journey.financial_state = (
-        "SETTLED" if journey.outstanding_amount == 0 else "PARTIAL"
-    )
+    journey.outstanding_amount = Decimal("0.00") 
+    journey.financial_state = "SETTLED"
 
+    # 2. Check for negative balance -> Block Card & Notify
+    if user.balance < Decimal("0.00"):
+        await db.execute(
+            update(RFIDCard).where(RFIDCard.user_id == user.user_id).values(is_blocked=True)
+        )
+        db.add(Notification(
+            user_id=user.user_id,
+            title="Card Blocked - Negative Balance",
+            body="Your balance dropped below zero. Your RFID card has been temporarily blocked. Please top up to unblock.",
+            type="error"
+        ))
+    # 3. Check for low balance -> Notify only
+    elif user.balance < Decimal("50.00"):
+        db.add(Notification(
+            user_id=user.user_id,
+            title="Low Balance Warning",
+            body=f"Your balance is ₹{user.balance}. Please top up to avoid interruptions.",
+            type="warning"
+        ))
+
+    # 4. Log the transaction
     txn = Transaction(
         journey_id=journey.journey_id,
         user_id=user.user_id,
@@ -128,7 +132,6 @@ async def finalize_journey(
 ) -> dict:
     """
     Called when the trip ends.
-    If there is an outstanding amount, mark for reconciliation.
     """
     if journey.outstanding_amount and Decimal(journey.outstanding_amount) > 0:
         journey.financial_state = "PARTIAL"

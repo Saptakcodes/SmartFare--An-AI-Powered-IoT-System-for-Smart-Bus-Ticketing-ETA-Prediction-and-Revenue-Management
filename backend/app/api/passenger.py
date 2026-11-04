@@ -1,7 +1,7 @@
 ﻿from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from uuid import uuid4
@@ -12,6 +12,7 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import (
     Journey,
+    Notification,  # Added
     RFIDCard,
     Route,
     RouteStop,
@@ -39,7 +40,6 @@ router = APIRouter(tags=["passenger"])
 # Stops
 # ---------------------------------------------------------------------------
 
-
 @router.get("/stops", response_model=list[StopListItem])
 async def list_stops(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -63,7 +63,6 @@ async def list_stops(
         StopListItem(stop_id=r[0], name=r[1], latitude=r[2], longitude=r[3])
         for r in rows
     ]
-
 
 @router.get("/stops/nearby", response_model=list[StopListItem])
 async def nearby_stops(
@@ -101,7 +100,6 @@ async def nearby_stops(
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
-
 
 @router.get("/routes", response_model=list[RouteListItem])
 async def list_routes(
@@ -142,10 +140,6 @@ async def search_routes(
     source_stop_id: str = Query(...),
     destination_stop_id: str = Query(...),
 ):
-    """
-    Find routes that contain both stops, with source appearing before
-    destination in sequence.
-    """
     sql = """
         SELECT r.route_id, r.name,
                s1.seq AS src_seq, s2.seq AS dst_seq
@@ -166,7 +160,6 @@ async def search_routes(
     if not rows:
         return []
 
-    # Fetch stop names once
     stops = (
         await db.execute(
             select(Stop).where(
@@ -176,7 +169,6 @@ async def search_routes(
     ).scalars().all()
     name_map = {s.stop_id: s.name for s in stops}
 
-    # Count stops per route
     results: list[RouteSearchResult] = []
     for r in rows:
         route_id = r[0]
@@ -247,7 +239,6 @@ async def route_detail(
 # My journeys
 # ---------------------------------------------------------------------------
 
-
 @router.get("/journeys/me", response_model=list[JourneyListItem])
 async def my_journeys(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -267,7 +258,6 @@ async def my_journeys(
         .all()
     )
 
-    # Fetch route names + stop names in bulk
     route_ids = list({j.route_id for j in journeys})
     stop_ids = set()
     for j in journeys:
@@ -317,7 +307,6 @@ async def my_journeys(
 # My transactions
 # ---------------------------------------------------------------------------
 
-
 @router.get("/transactions/me", response_model=list[TransactionListItem])
 async def my_transactions(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -353,7 +342,6 @@ async def my_transactions(
 # ---------------------------------------------------------------------------
 # RFID cards
 # ---------------------------------------------------------------------------
-
 
 @router.get("/rfid/me", response_model=list[RFIDCardItem])
 async def my_rfid_cards(
@@ -393,8 +381,35 @@ async def link_rfid(
     if existing:
         raise HTTPException(status_code=400, detail="RFID card already linked")
 
+    # Check if they have ₹50 for the security deposit
+    if Decimal(str(current.balance)) < Decimal("50.00"):
+        raise HTTPException(status_code=400, detail="You need at least ₹50 to cover the refundable card deposit.")
+
+    # Deduct Deposit
+    current.balance = Decimal(str(current.balance)) - Decimal("50.00")
+
+    # Link Card
     card = RFIDCard(rfid_id=payload.rfid_id, user_id=current.user_id)
     db.add(card)
+    
+    # Log Transaction
+    db.add(Transaction(
+        transaction_id=uuid4(),
+        user_id=current.user_id,
+        amount=Decimal("-50.00"),
+        type="FEE",
+        balance_after=current.balance,
+        notes="Refundable RFID Security Deposit"
+    ))
+
+    # Send Notification
+    db.add(Notification(
+        user_id=current.user_id,
+        title="RFID Card Linked",
+        body="A refundable security deposit of ₹50 was deducted. This will be refunded to your wallet if you unlink the card.",
+        type="info"
+    ))
+    
     await db.commit()
     await db.refresh(card)
     return RFIDCardItem(
@@ -403,8 +418,6 @@ async def link_rfid(
         issued_at=card.issued_at,
     )
 
-
-#DELETE Rfid
 
 @router.delete("/rfid/{rfid_id}")
 async def unlink_rfid(
@@ -423,9 +436,29 @@ async def unlink_rfid(
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
 
+    # Refund Deposit
+    current.balance = Decimal(str(current.balance)) + Decimal("50.00")
+
+    db.add(Transaction(
+        transaction_id=uuid4(),
+        user_id=current.user_id,
+        amount=Decimal("50.00"),
+        type="REFUND",
+        balance_after=current.balance,
+        notes="RFID Security Deposit Refund"
+    ))
+
+    db.add(Notification(
+        user_id=current.user_id,
+        title="RFID Card Unlinked",
+        body="Your card was unlinked, and the ₹50 security deposit has been refunded to your wallet.",
+        type="info"
+    ))
+
     await db.delete(card)
     await db.commit()
-    return {"message": "Card unlinked"}
+    return {"message": "Card unlinked and deposit refunded"}
+
 
 #wallet+journey history
 
@@ -435,10 +468,6 @@ async def top_up(
     db: Annotated[AsyncSession, Depends(get_db)],
     current: Annotated[User, Depends(get_current_user)],
 ):
-    import uuid as _uuid
-
-    from app.schemas.passenger import TopUpResponse
-
     amount = Decimal(str(payload.amount))
     if amount <= 0 or amount > Decimal("10000"):
         raise HTTPException(status_code=400, detail="Invalid amount")
@@ -448,8 +477,23 @@ async def top_up(
     ).scalar_one()
     user.balance = Decimal(user.balance or 0) + amount
 
+    # Unblock RFID card if they paid off their negative debt
+    if user.balance >= Decimal("0.00"):
+        await db.execute(
+            update(RFIDCard).where(RFIDCard.user_id == user.user_id).values(is_blocked=False)
+        )
+
+    # Low Balance Warning Notification
+    if user.balance < Decimal("50.00"):
+        db.add(Notification(
+            user_id=user.user_id,
+            title="Low Balance Warning",
+            body=f"Your balance is ₹{user.balance}. Please maintain at least ₹50 to avoid service interruptions.",
+            type="warning"
+        ))
+
     txn = Transaction(
-        transaction_id=_uuid.uuid4(),
+        transaction_id=uuid4(),
         journey_id=None,
         user_id=user.user_id,
         amount=amount,
@@ -463,6 +507,7 @@ async def top_up(
 
     return TopUpResponse(balance=float(user.balance), transaction_id=txn.transaction_id)
 
+
 #live map
 
 @router.get("/buses/live")
@@ -470,10 +515,6 @@ async def live_buses(
     db: Annotated[AsyncSession, Depends(get_db)],
     minutes: int = Query(default=10, ge=1, le=120),
 ):
-    """
-    Latest known position of each bus.
-    Only includes buses with GPS activity in the last N minutes.
-    """
     sql = text(
         """
         SELECT DISTINCT ON (gr.bus_id)

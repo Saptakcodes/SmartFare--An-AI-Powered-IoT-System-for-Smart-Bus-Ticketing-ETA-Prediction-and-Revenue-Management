@@ -1,7 +1,8 @@
 ﻿import { useRouter } from "expo-router";
-import { ArrowLeft, ScanLine } from "lucide-react-native";
+import { ArrowLeft, ScanLine, Info } from "lucide-react-native";
 import { useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,13 +16,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Button } from "../../../components/ui/Button";
 import { TextInput } from "../../../components/ui/TextInput";
 import { linkCard } from "../../../lib/cards";
+import { useAuth } from "../../../contexts/AuthContext"; // Added
 import { useTheme } from "../../../theme/ThemeProvider";
-import { radii, spacing } from "../../../theme/tokens"; // Added radii
+import { radii, spacing } from "../../../theme/tokens";
 import { typography } from "../../../theme/typography";
 
 export default function AddCardScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { user, refreshUser } = useAuth(); // Added user and refreshUser
 
   const [epc, setEpc] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -45,11 +48,17 @@ export default function AddCardScreen() {
       return;
     }
 
+    if (user && user.balance < 50) {
+      Alert.alert("Insufficient Balance", "You need at least ₹50 in your wallet to pay the refundable security deposit.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const card = await linkCard(cleaned);
+      await refreshUser(); // Refresh wallet balance after ₹50 deduction
       setSuccess(`Card ${card.rfid_id} linked successfully`);
-      setTimeout(() => router.replace("/card"), 1200);
+      setTimeout(() => router.replace("/card"), 1500);
     } catch (e: any) {
       setError(e?.detail || "Could not link card");
     } finally {
@@ -111,14 +120,24 @@ export default function AddCardScreen() {
                   color: colors.textSecondary,
                   textAlign: "center",
                   marginTop: spacing.sm,
-                  marginBottom: spacing.xxxl,
+                  marginBottom: spacing.xl,
                 },
               ]}
             >
               Scan the QR code or type the UID printed on the back of your card.
             </Text>
 
-            {/* NEW: Scan QR Code Button */}
+            {/* SECURITY DEPOSIT WARNING BANNER */}
+            <View style={{ backgroundColor: '#e3f2fd', padding: spacing.md, borderRadius: radii.md, marginBottom: spacing.xl, flexDirection: 'row', alignItems: 'center' }}>
+              <Info color="#0d47a1" size={24} />
+              <View style={{ marginLeft: spacing.sm, flex: 1 }}>
+                <Text style={{ color: '#0d47a1', fontWeight: 'bold' }}>₹50 Refundable Deposit</Text>
+                <Text style={{ color: '#0d47a1', fontSize: 12, marginTop: 2 }}>
+                  A one-time security deposit of ₹50 will be deducted from your wallet. This is fully refunded if you unlink the card.
+                </Text>
+              </View>
+            </View>
+
             <Pressable
               onPress={() => router.push("/card/scan")}
               style={({ pressed }) => [
@@ -136,7 +155,6 @@ export default function AddCardScreen() {
               </Text>
             </Pressable>
 
-            {/* NEW: Divider */}
             <View style={styles.dividerRow}>
               <View style={[styles.line, { backgroundColor: colors.border }]} />
               <Text style={[typography.caption, { color: colors.textMuted, marginHorizontal: spacing.md, fontWeight: "600" }]}>
@@ -157,30 +175,12 @@ export default function AddCardScreen() {
             />
 
             {error ? (
-              <Text
-                style={[
-                  typography.bodySm,
-                  {
-                    color: colors.danger,
-                    textAlign: "center",
-                    marginTop: spacing.lg,
-                  },
-                ]}
-              >
+              <Text style={[typography.bodySm, { color: colors.danger, textAlign: "center", marginTop: spacing.lg }]}>
                 {error}
               </Text>
             ) : null}
             {success ? (
-              <Text
-                style={[
-                  typography.bodySm,
-                  {
-                    color: colors.success,
-                    textAlign: "center",
-                    marginTop: spacing.lg,
-                  },
-                ]}
-              >
+              <Text style={[typography.bodySm, { color: colors.success, textAlign: "center", marginTop: spacing.lg }]}>
                 {success}
               </Text>
             ) : null}
@@ -188,9 +188,10 @@ export default function AddCardScreen() {
             <View style={{ height: spacing.xxl }} />
 
             <Button
-              label="Link Card Manually"
+              label={user && user.balance < 50 ? "Insufficient Balance (Need ₹50)" : "Pay ₹50 Deposit & Link"}
               onPress={onSubmit}
               loading={submitting}
+              disabled={submitting || (user ? user.balance < 50 : true)}
               size="lg"
             />
           </View>

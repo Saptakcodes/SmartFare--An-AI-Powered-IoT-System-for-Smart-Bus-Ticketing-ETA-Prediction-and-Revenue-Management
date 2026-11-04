@@ -5,12 +5,12 @@ from uuid import uuid4
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_current_admin
 from app.db.session import get_db
-from app.models import DigitalTicket, User, Fare, Journey, Trip, RFIDCard, Admin
+from app.models import DigitalTicket, User, Fare, Journey, Trip, RFIDCard, Admin, Notification
 from app.schemas.tickets import BuyTicketRequest, TicketResponse, ValidateTicketRequest
 
 router = APIRouter(tags=["tickets"])
@@ -21,7 +21,7 @@ async def buy_ticket(
     db: Annotated[AsyncSession, Depends(get_db)],
     current: Annotated[User, Depends(get_current_user)],
 ):
-    # 0. SECURITY: Lock the user's wallet row to prevent race conditions (double taps)
+    # 0. Lock user
     user = await db.scalar(
         select(User).where(User.user_id == current.user_id).with_for_update()
     )
@@ -40,7 +40,7 @@ async def buy_ticket(
 
     fare_decimal = Decimal(str(fare))
 
-    # 2. IDEMPOTENCY: Check if they already bought this exact ticket recently
+    # 2. Idempotency
     existing_ticket = await db.scalar(
         select(DigitalTicket).where(
             DigitalTicket.user_id == user.user_id,
@@ -52,7 +52,6 @@ async def buy_ticket(
         )
     )
     if existing_ticket:
-        # Return the existing ticket instead of charging them again
         return TicketResponse(
             ticket_id=str(existing_ticket.ticket_id),
             qr_token=existing_ticket.qr_token,
@@ -60,14 +59,29 @@ async def buy_ticket(
             expires_at=existing_ticket.expires_at.isoformat()
         )
 
-    # 3. Check balance
-    if Decimal(str(user.balance)) < fare_decimal:
-        raise HTTPException(400, "Insufficient wallet balance. Please top up.")
-
-    # 4. Deduct balance safely
+    # 3. Deduct balance (Allow Negative / Overdraft)
     user.balance = Decimal(str(user.balance)) - fare_decimal
     
-    # 5. Generate Ticket (Valid for 25 minutes)
+    # If balance is now below 0, block their RFID card
+    if user.balance < 0:
+        await db.execute(
+            update(RFIDCard).where(RFIDCard.user_id == user.user_id).values(is_blocked=True)
+        )
+        db.add(Notification(
+            user_id=user.user_id,
+            title="Card Blocked - Negative Balance",
+            body="Your wallet balance dropped below zero. Your RFID card has been temporarily blocked. Please top up to unblock.",
+            type="error"
+        ))
+    elif user.balance < Decimal("50.00"):
+        db.add(Notification(
+            user_id=user.user_id,
+            title="Low Balance Warning",
+            body=f"Your balance is ₹{user.balance}. Please top up to avoid interruptions.",
+            type="warning"
+        ))
+    
+    # 4. Generate Ticket
     qr_token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=25)
     
@@ -95,9 +109,8 @@ async def buy_ticket(
 async def validate_ticket(
     payload: ValidateTicketRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[Admin, Depends(get_current_admin)], # FIXED: Changed User to Admin
+    _: Annotated[Admin, Depends(get_current_admin)],
 ):
-    # 1. Find ticket
     ticket = await db.scalar(
         select(DigitalTicket).where(DigitalTicket.qr_token == payload.qr_token).with_for_update()
     )
@@ -110,12 +123,10 @@ async def validate_ticket(
         await db.commit()
         raise HTTPException(400, "Ticket has expired")
 
-    # 2. Verify Trip
     trip = await db.scalar(select(Trip).where(Trip.trip_id == payload.trip_id))
     if not trip:
         raise HTTPException(404, "Trip ID not found")
 
-    # 3. Find the user's RFID card
     linked_card = await db.scalar(
         select(RFIDCard).where(RFIDCard.user_id == ticket.user_id).limit(1)
     )
@@ -136,7 +147,6 @@ async def validate_ticket(
             db.add(virtual_card)
             await db.flush()
 
-    # 4. Create Journey
     journey = Journey(
         journey_id=uuid4(),
         rfid_id=journey_rfid_id,
@@ -155,7 +165,6 @@ async def validate_ticket(
     )
     db.add(journey)
 
-    # 5. Mark Ticket Used
     ticket.status = "USED"
     ticket.used_at = datetime.now(timezone.utc)
     

@@ -2,12 +2,13 @@
 from decimal import Decimal
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
     Journey,
     JourneyEvent,
+    Notification,
     RFIDCard,
     RFIDEvent,
     Stop,
@@ -23,9 +24,7 @@ async def _nearest_stop(
     lon: float,
     max_distance_m: int = 50,
 ) -> str | None:
-    """Use PostGIS to find the nearest stop on this route within range."""
     from sqlalchemy import text
-
     sql = text(
         """
         SELECT s.stop_id
@@ -50,32 +49,23 @@ async def handle_rfid_event(
     db: AsyncSession,
     event: RFIDEvent,
 ) -> dict:
-    """
-    Interpret one RFID detection session.
-    Produces:
-    - ENTRY: create journey, no charge yet
-    - POSSIBLE_EXIT: settle additional fare
-    - UNKNOWN: cannot resolve RFID → mark event but don't create journey
-    """
-    # Resolve RFID → user
     card = (
         await db.execute(
             select(RFIDCard).where(RFIDCard.rfid_id == event.rfid_id)
         )
     ).scalar_one_or_none()
 
+    # Check if card exists or is blocked (e.g., from previous negative balance)
     if not card or card.is_blocked:
         event.event_type = "UNKNOWN"
         await db.commit()
-        return {"status": "UNKNOWN_RFID"}
+        return {"status": "UNKNOWN_RFID_OR_BLOCKED"}
 
-    # Determine stop
     stop_id = event.stop_id
     if not stop_id and event.latitude is not None and event.longitude is not None:
         stop_id = await _nearest_stop(
             db, event.bus_id and event.trip_id and None or None, event.latitude, event.longitude
         )
-    # Fallback: verify provided stop
     if stop_id:
         exists = (
             await db.execute(select(Stop.stop_id).where(Stop.stop_id == stop_id))
@@ -83,7 +73,6 @@ async def handle_rfid_event(
         if not exists:
             stop_id = None
 
-    # Find active journey for this trip + rfid
     journey = None
     if event.trip_id:
         journey = (
@@ -96,11 +85,9 @@ async def handle_rfid_event(
             )
         ).scalar_one_or_none()
 
-    # CASE 1 — ENTRY (no active journey for this trip+rfid)
+    # CASE 1 — ENTRY
     if event.event_type == "ENTRY" or journey is None:
-        # trip + route lookup
         from app.models import Trip
-
         trip = (
             await db.execute(select(Trip).where(Trip.trip_id == event.trip_id))
         ).scalar_one_or_none()
@@ -138,13 +125,13 @@ async def handle_rfid_event(
         await db.commit()
         return {"status": "JOURNEY_STARTED", "journey_id": str(new_journey.journey_id)}
 
-    # CASE 2 — POSSIBLE_EXIT (active journey found)
+    # CASE 2 — POSSIBLE_EXIT
     if stop_id is None:
         event.journey_id = journey.journey_id
         await db.commit()
         return {"status": "NO_STOP_MATCH"}
 
-    # Fetch fare lookup + settlement
+    # Fetch fare lookup + settlement (Fare Service now allows overdraft)
     settlement = await settle_possible_exit(db, journey, stop_id)
 
     journey.latest_exit_at = event.detected_at
@@ -161,5 +148,19 @@ async def handle_rfid_event(
             amount_delta=settlement.get("additional", 0),
         )
     )
+    
+    # INDUSTRY STANDARD: Block card if balance went below zero
+    user = await db.scalar(select(User).where(User.user_id == card.user_id))
+    if user and Decimal(str(user.balance)) < Decimal("0.00"):
+        await db.execute(
+            update(RFIDCard).where(RFIDCard.user_id == user.user_id).values(is_blocked=True)
+        )
+        db.add(Notification(
+            user_id=user.user_id,
+            title="Card Blocked - Negative Balance",
+            body="Your balance went below ₹0 after this trip. Your card is now blocked. Please top up.",
+            type="error"
+        ))
+
     await db.commit()
     return {"status": "POSSIBLE_EXIT", "settlement": settlement}

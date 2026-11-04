@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { ArrowLeft, MapPin, Ticket as TicketIcon } from "lucide-react-native";
+import { ArrowLeft, MapPin, Ticket as TicketIcon, AlertTriangle, XCircle } from "lucide-react-native";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,7 +18,7 @@ const DEFAULT_ROUTE = "R-001";
 
 export default function BuyTicketScreen() {
   const router = useRouter();
-  const { refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth(); // Added user
   const { colors } = useTheme();
 
   const [source, setSource] = useState<Stop | null>(null);
@@ -28,8 +28,11 @@ export default function BuyTicketScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const isBlocked = user ? user.balance < 0 : false;
+  const isLowBalance = user ? user.balance >= 0 && user.balance < 50 : false;
+
   async function onBuy() {
-    if (!source || !dest) return;
+    if (!source || !dest || isBlocked) return;
     setError(null);
     setSubmitting(true);
     try {
@@ -57,6 +60,29 @@ export default function BuyTicketScreen() {
             Buy Digital Ticket
           </Text>
         </View>
+
+        {/* BALANCE WARNING BANNERS */}
+        {isBlocked ? (
+          <View style={{ backgroundColor: '#ffebee', padding: spacing.md, borderRadius: radii.md, marginTop: spacing.xl, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#ffcdd2' }}>
+            <XCircle color="#c62828" size={24} />
+            <View style={{ marginLeft: spacing.sm, flex: 1 }}>
+              <Text style={{ color: '#c62828', fontWeight: 'bold' }}>🚫 Account Blocked</Text>
+              <Text style={{ color: '#c62828', fontSize: 12, marginTop: 2 }}>
+                Your balance is negative. Please top up your wallet to resume service.
+              </Text>
+            </View>
+          </View>
+        ) : isLowBalance ? (
+          <View style={{ backgroundColor: '#fff3e0', padding: spacing.md, borderRadius: radii.md, marginTop: spacing.xl, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#ffe0b2' }}>
+            <AlertTriangle color="#ef6c00" size={24} />
+            <View style={{ marginLeft: spacing.sm, flex: 1 }}>
+              <Text style={{ color: '#ef6c00', fontWeight: 'bold' }}>⚠️ Low Balance Warning</Text>
+              <Text style={{ color: '#ef6c00', fontSize: 12, marginTop: 2 }}>
+                Your balance is ₹{user?.balance}. Maintain at least ₹50 to avoid card blocking.
+              </Text>
+            </View>
+          </View>
+        ) : null}
 
         <Card style={{ marginTop: spacing.xl }}>
           <Pressable onPress={() => setShowSource(true)} style={styles.pickerRow}>
@@ -90,10 +116,10 @@ export default function BuyTicketScreen() {
 
         <View style={{ marginTop: spacing.xxxl }}>
           <Button
-            label="Pay from Wallet"
+            label={isBlocked ? "Account Blocked - Top Up" : "Pay from Wallet"}
             onPress={onBuy}
             loading={submitting}
-            disabled={!source || !dest || source.stop_id === dest.stop_id}
+            disabled={!source || !dest || source.stop_id === dest.stop_id || isBlocked}
             size="lg"
             icon={<TicketIcon color="#fff" size={18} />}
           />
