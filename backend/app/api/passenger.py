@@ -5,7 +5,7 @@ from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from uuid import uuid4
-from app.schemas.passenger import TopUpRequest, TopUpResponse
+from app.schemas.passenger import TopUpRequest, TopUpResponse, UpdateCardStatusRequest
 from decimal import Decimal
 
 from app.api.deps import get_current_user
@@ -444,6 +444,51 @@ async def link_rfid(
         type="info"
     ))
     
+    await db.commit()
+    await db.refresh(card)
+    return RFIDCardItem(
+        rfid_id=card.rfid_id,
+        is_blocked=card.is_blocked,
+        issued_at=card.issued_at,
+    )
+
+
+@router.patch("/rfid/{rfid_id}/status", response_model=RFIDCardItem)
+async def update_card_status(
+    rfid_id: str,
+    payload: UpdateCardStatusRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+):
+    card = (
+        await db.execute(
+            select(RFIDCard).where(
+                RFIDCard.rfid_id == rfid_id,
+                RFIDCard.user_id == current.user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    card.is_blocked = payload.is_blocked
+    
+    if payload.is_blocked:
+        db.add(Notification(
+            user_id=current.user_id,
+            title="RFID Card Blocked",
+            body="Your card has been successfully blocked. It can no longer be used to board buses.",
+            type="warning"
+        ))
+    else:
+        db.add(Notification(
+            user_id=current.user_id,
+            title="RFID Card Unblocked",
+            body="Your card has been reactivated and can be used again.",
+            type="info"
+        ))
+
     await db.commit()
     await db.refresh(card)
     return RFIDCardItem(

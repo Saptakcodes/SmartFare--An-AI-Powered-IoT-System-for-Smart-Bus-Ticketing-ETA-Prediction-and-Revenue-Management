@@ -24,3 +24,11 @@ export function unlinkCard(rfid_id: string): Promise<{ message: string }> {
     auth: true,
   });
 }
+
+export function updateCardStatus(rfid_id: string, is_blocked: boolean): Promise<RFIDCard> {
+  return apiRequest<RFIDCard>(`/rfid/${rfid_id}/status`, {
+    method: "PATCH",
+    body: { is_blocked },
+    auth: true,
+  });
+}

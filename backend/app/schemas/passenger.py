@@ -90,3 +90,6 @@ class TopUpRequest(BaseModel):
 class TopUpResponse(BaseModel):
     balance: float
     transaction_id: uuid.UUID
+
+class UpdateCardStatusRequest(BaseModel):
+    is_blocked: bool

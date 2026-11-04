@@ -1,9 +1,10 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
-import { ArrowLeft, Nfc, Plus, ShieldAlert } from "lucide-react-native";
+import { ArrowLeft, Nfc, Plus, ShieldAlert, ShieldCheck } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -14,7 +15,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { Button } from "../../../components/ui/Button";
-import { listCards, RFIDCard } from "../../../lib/cards";
+import { listCards, RFIDCard, updateCardStatus } from "../../../lib/cards";
 import { useTheme } from "../../../theme/ThemeProvider";
 import { radii, spacing } from "../../../theme/tokens";
 import { typography } from "../../../theme/typography";
@@ -146,7 +147,7 @@ export default function CardListScreen() {
         ) : (
           <>
             {cards!.map((card) => (
-              <CardVisual key={card.rfid_id} card={card} />
+              <CardVisual key={card.rfid_id} card={card} onRefresh={load} />
             ))}
             <View style={{ height: spacing.xl }} />
             <Button
@@ -162,89 +163,134 @@ export default function CardListScreen() {
   );
 }
 
-function CardVisual({ card }: { card: RFIDCard }) {
+function CardVisual({ card, onRefresh }: { card: RFIDCard; onRefresh: () => void }) {
   const { colors } = useTheme();
   const router = useRouter();
-
   const blocked = card.is_blocked;
 
-  return (
-    <Pressable
-      onPress={() =>
-        router.push({
-          pathname: "/card/[rfid_id]",
-          params: { rfid_id: card.rfid_id },
-        })
-      }
-      style={({ pressed }) => [
-        { marginTop: spacing.xl, transform: [{ scale: pressed ? 0.98 : 1 }] },
-      ]}
-    >
-      <LinearGradient
-        colors={
-          blocked
-            ? ["#3A3F52", "#1E2233"]
-            : (colors.brandGradient as unknown as string[])
+  async function toggleBlock() {
+    const action = blocked ? "Unblock" : "Report Lost";
+    const msg = blocked 
+      ? "This will reactivate your card so you can use it again."
+      : "This will instantly block your card so no one else can use it. You can unblock it later.";
+
+    Alert.alert(
+      `${action} Card`,
+      msg,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: action,
+          style: blocked ? "default" : "destructive",
+          onPress: async () => {
+            try {
+              await updateCardStatus(card.rfid_id, !blocked);
+              onRefresh(); // Refresh the list to show new status
+            } catch (e: any) {
+              Alert.alert("Error", e?.detail || "Failed to update card status");
+            }
+          }
         }
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.cardVisual}
+      ]
+    );
+  }
+
+  return (
+    <View style={{ marginTop: spacing.xl }}>
+      <Pressable
+        onPress={() =>
+          router.push({
+            pathname: "/card/[rfid_id]",
+            params: { rfid_id: card.rfid_id },
+          })
+        }
+        style={({ pressed }) => [
+          { transform: [{ scale: pressed ? 0.98 : 1 }] },
+        ]}
       >
-        <View style={styles.cardTop}>
-          <Nfc color="#ffffffcc" size={28} />
-          <View
+        <LinearGradient
+          colors={
+            blocked
+              ? ["#3A3F52", "#1E2233"]
+              : (colors.brandGradient as unknown as string[])
+          }
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.cardVisual}
+        >
+          <View style={styles.cardTop}>
+            <Nfc color="#ffffffcc" size={28} />
+            <View
+              style={[
+                styles.statusPill,
+                { backgroundColor: blocked ? "#FF5C7A55" : "#2EE6A655" },
+              ]}
+            >
+              <Text
+                style={[
+                  typography.caption,
+                  { color: blocked ? "#FF5C7A" : "#2EE6A6", fontWeight: "600" },
+                ]}
+              >
+                {blocked ? "BLOCKED" : "ACTIVE"}
+              </Text>
+            </View>
+          </View>
+
+          <Text
             style={[
-              styles.statusPill,
+              typography.h2,
               {
-                backgroundColor: blocked ? "#FF5C7A55" : "#2EE6A655",
+                color: "#fff",
+                marginTop: spacing.xxxl,
+                letterSpacing: 2,
+                fontVariant: ["tabular-nums"],
               },
             ]}
           >
-            <Text
-              style={[
-                typography.caption,
-                { color: blocked ? "#FF5C7A" : "#2EE6A6", fontWeight: "600" },
-              ]}
-            >
-              {blocked ? "BLOCKED" : "ACTIVE"}
-            </Text>
-          </View>
-        </View>
+            {maskUid(card.rfid_id)}
+          </Text>
 
-        <Text
-          style={[
-            typography.h2,
-            {
-              color: "#fff",
-              marginTop: spacing.xxxl,
-              letterSpacing: 2,
-              fontVariant: ["tabular-nums"],
-            },
-          ]}
-        >
-          {maskUid(card.rfid_id)}
+          <View style={styles.cardBottom}>
+            <View>
+              <Text style={[typography.micro, { color: "#ffffffaa" }]}>CARDHOLDER</Text>
+              <Text style={[typography.bodySm, { color: "#fff", fontWeight: "600" }]}>
+                SmartFare User
+              </Text>
+            </View>
+            <View style={{ alignItems: "flex-end" }}>
+              <Text style={[typography.micro, { color: "#ffffffaa" }]}>ISSUED</Text>
+              <Text style={[typography.bodySm, { color: "#fff" }]}>
+                {new Date(card.issued_at).toLocaleDateString(undefined, { month: "2-digit", year: "2-digit" })}
+              </Text>
+            </View>
+          </View>
+          
+          {/* Decorative Circles */}
+          <View style={styles.deco1} />
+          <View style={styles.deco2} />
+        </LinearGradient>
+      </Pressable>
+
+      {/* SECURITY ACTION BUTTON */}
+      <Pressable 
+        onPress={toggleBlock}
+        style={{ 
+          flexDirection: "row", 
+          alignItems: "center", 
+          justifyContent: "center", 
+          marginTop: spacing.md,
+          padding: spacing.sm,
+          backgroundColor: blocked ? colors.success + "15" : colors.danger + "15",
+          borderRadius: radii.md
+        }}
+      >
+        {blocked ? <ShieldCheck color={colors.success} size={16} /> : <ShieldAlert color={colors.danger} size={16} />}
+        <Text style={{ color: blocked ? colors.success : colors.danger, fontWeight: "bold", marginLeft: 6, fontSize: 12 }}>
+          {blocked ? "Unblock this Card" : "Report Lost / Block Card"}
         </Text>
-
-        <View style={styles.cardBottom}>
-          <View>
-            <Text style={[typography.micro, { color: "#ffffffaa" }]}>CARDHOLDER</Text>
-            <Text style={[typography.bodySm, { color: "#fff", fontWeight: "600" }]}>
-              SmartFare User
-            </Text>
-          </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={[typography.micro, { color: "#ffffffaa" }]}>ISSUED</Text>
-            <Text style={[typography.bodySm, { color: "#fff" }]}>
-              {new Date(card.issued_at).toLocaleDateString(undefined, { month: "2-digit", year: "2-digit" })}
-            </Text>
-          </View>
-        </View>
-        
-        {/* Decorative Circles */}
-        <View style={styles.deco1} />
-        <View style={styles.deco2} />
-      </LinearGradient>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
