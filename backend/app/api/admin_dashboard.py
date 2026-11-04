@@ -1,9 +1,13 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException # <--- ADDED HTTPException HERE
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.schemas.admin_dashboard import ActiveTripItem, EndTripResponse
+from app.services.trip_service import end_trip
+from app.models import Trip, DeviceStatus
 
 from app.api.deps import get_current_admin
 from app.db.session import get_db
@@ -15,8 +19,8 @@ from app.models import (
     Route,
     Stop,
     Transaction,
-    User,        
-    RFIDCard,    
+    User,
+    RFIDCard,
 )
 from app.schemas.admin_dashboard import (
     DeviceHealthItem,
@@ -324,3 +328,45 @@ async def admin_devices(
             )
         )
     return out
+
+@router.get("/trips/active", response_model=list[ActiveTripItem])
+async def get_active_trips(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[Admin, Depends(get_current_admin)],
+):
+    """Fetch all currently running trips."""
+    trips = (
+        await db.execute(
+            select(Trip).where(Trip.status == "ACTIVE").order_by(Trip.started_at.desc())
+        )
+    ).scalars().all()
+
+    return [
+        ActiveTripItem(
+            trip_id=t.trip_id,
+            bus_id=t.bus_id,
+            device_id=t.device_id,
+            route_id=t.route_id,
+            started_at=t.started_at,
+            status=t.status,
+        )
+        for t in trips
+    ]
+
+@router.post("/trips/{trip_id}/force-end", response_model=EndTripResponse)
+async def force_end_trip(
+    trip_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[Admin, Depends(get_current_admin)],
+):
+    """Admin override to forcefully end a trip and close all active journeys."""
+    try:
+        result = await end_trip(db, trip_id=trip_id)
+        return EndTripResponse(
+            status="success",
+            message="Trip ended successfully.",
+            trip_id=result["trip_id"],
+            journeys_closed=result["journeys_closed"]
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

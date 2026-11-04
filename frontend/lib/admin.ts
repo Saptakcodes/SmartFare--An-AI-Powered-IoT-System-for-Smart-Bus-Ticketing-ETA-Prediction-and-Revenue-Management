@@ -116,3 +116,30 @@ export function validateTicket(qr_token: string, trip_id: string): Promise<{ sta
     body: { qr_token, trip_id },
   });
 }
+
+
+export interface ActiveTrip {
+  trip_id: string;
+  bus_id: string;
+  device_id: string;
+  route_id: string;
+  started_at: string;
+  status: string;
+}
+
+export function getActiveTrips(): Promise<ActiveTrip[]> {
+  return adminRequest<ActiveTrip[]>("/admin/dashboard/trips/active");
+}
+
+export interface EndTripResponse {
+  status: string;
+  message: string;
+  trip_id: string;
+  journeys_closed: number;
+}
+
+export function forceEndTrip(trip_id: string): Promise<EndTripResponse> {
+  return adminRequest<EndTripResponse>(`/admin/dashboard/trips/${trip_id}/force-end`, {
+    method: "POST",
+  });
+}

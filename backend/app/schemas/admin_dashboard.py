@@ -86,3 +86,19 @@ class DeviceHealthItem(BaseModel):
     app_version: str | None
     minutes_since_seen: int | None
     status: str  # "online" | "stale" | "offline"
+
+#admin-dashboard
+
+class ActiveTripItem(BaseModel):
+    trip_id: str
+    bus_id: str
+    device_id: str
+    route_id: str
+    started_at: datetime
+    status: str
+
+class EndTripResponse(BaseModel):
+    status: str
+    message: str
+    trip_id: str
+    journeys_closed: int
