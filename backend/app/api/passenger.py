@@ -8,6 +8,8 @@ from uuid import uuid4
 from app.schemas.passenger import TopUpRequest, TopUpResponse, UpdateCardStatusRequest
 from decimal import Decimal
 
+from app.services.eta_service import predict_bus_eta
+
 from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models import (
@@ -627,3 +629,14 @@ async def live_buses(
         }
         for r in rows
     ]
+
+@router.get("/buses/{bus_id}/eta")
+async def get_bus_eta(
+    bus_id: str,
+    route_id: str,
+    target_stop_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Predicts how many minutes until the bus reaches the target stop."""
+    minutes = await predict_bus_eta(db, bus_id, route_id, target_stop_id)
+    return {"eta_minutes": minutes}
