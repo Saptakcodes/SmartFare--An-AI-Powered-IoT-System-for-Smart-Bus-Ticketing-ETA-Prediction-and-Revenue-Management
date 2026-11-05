@@ -12,6 +12,7 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert, // <-- ADDED ALERT
   Platform,
   Pressable,
   StyleSheet,
@@ -78,12 +79,19 @@ export default function MapScreen() {
   }
 
   async function calculateEta() {
-    if (!selectedBus || !targetStop || !selectedBus.route_id) return;
+    if (!selectedBus || !targetStop) {
+      Alert.alert("Missing Info", "Please ensure a bus and destination are selected.");
+      return;
+    }
+    
+    // FIX: Fallback to R-001 if route_id is missing
+    const routeId = selectedBus.route_id || "R-001"; 
+    
     setCalculatingEta(true);
     setBusOffline(false);
     
     try {
-      const res = await getBusETA(selectedBus.bus_id, selectedBus.route_id, targetStop.stop_id);
+      const res = await getBusETA(selectedBus.bus_id, routeId, targetStop.stop_id);
       
       if (res.status === "offline" || res.eta_minutes === null) {
         setBusOffline(true);
@@ -91,8 +99,9 @@ export default function MapScreen() {
       } else {
         setEta(res.eta_minutes);
       }
-    } catch (e) {
-      console.log(e);
+    } catch (e: any) {
+      console.log("ETA Error:", e);
+      Alert.alert("Error", e?.detail || "Failed to calculate ETA. Check if RPi is online.");
     } finally {
       setCalculatingEta(false);
     }
@@ -297,7 +306,6 @@ export default function MapScreen() {
         title="Select Destination"
         onClose={() => setShowStopPicker(false)}
         onSelect={(stop) => {
-          // Find the full RouteStopItem from the route
           const routeStop = route?.stops.find((s) => s.stop_id === stop.stop_id);
           if (routeStop) setTargetStop(routeStop);
           setShowStopPicker(false);
