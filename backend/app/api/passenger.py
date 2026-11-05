@@ -639,4 +639,12 @@ async def get_bus_eta(
 ):
     """Predicts how many minutes until the bus reaches the target stop."""
     minutes = await predict_bus_eta(db, bus_id, route_id, target_stop_id)
-    return {"eta_minutes": minutes}
+    
+    if minutes is None:
+        return {
+            "eta_minutes": None, 
+            "status": "offline", 
+            "message": "Bus is offline or GPS signal lost."
+        }
+        
+    return {"eta_minutes": minutes, "status": "online"}
