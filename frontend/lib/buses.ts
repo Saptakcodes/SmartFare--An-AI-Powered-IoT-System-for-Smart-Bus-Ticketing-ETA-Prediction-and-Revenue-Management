@@ -15,3 +15,15 @@ export interface LiveBus {
 export function fetchLiveBuses(minutes = 10): Promise<LiveBus[]> {
   return apiRequest<LiveBus[]>(`/buses/live?minutes=${minutes}`);
 }
+
+// --- NEWLY ADDED ETA FUNCTIONALITY ---
+
+export interface BusETA {
+  eta_minutes: number | null;
+  status: "online" | "offline";
+  message?: string;
+}
+
+export function getBusETA(bus_id: string, route_id: string, target_stop_id: string): Promise<BusETA> {
+  return apiRequest<BusETA>(`/buses/${bus_id}/eta?route_id=${route_id}&target_stop_id=${target_stop_id}`);
+}
