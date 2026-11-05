@@ -4,9 +4,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # Cleaned up the duplicate imports
-from app.api import admin_auth, admin_dashboard, auth, notifications, passenger, sync, trips, tickets
+from app.api import admin_auth, admin_dashboard, auth, notifications, passenger, sync, trips, tickets, mock_payment
 from app.core.config import settings
-from app.services.cron_service import cleanup_stale_trips # <-- Import the cron job
+from app.services.cron_service import cleanup_stale_trips 
 
 # Lifespan context manager for startup/shutdown events
 @asynccontextmanager
@@ -44,6 +44,7 @@ app.include_router(passenger.router)
 app.include_router(admin_dashboard.router)
 app.include_router(notifications.router)
 app.include_router(tickets.router)
+app.include_router(mock_payment.router)
 
 @app.get("/health")
 async def health():

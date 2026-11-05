@@ -4,10 +4,13 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Bus,
+  CheckCircle,
   Clock,
+  CreditCard,
   Plus,
   Wallet as WalletIcon,
   X,
+  XCircle,
 } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
@@ -29,7 +32,13 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { CountUp } from "../../components/ui/CountUp";
 import { useAuth } from "../../contexts/AuthContext";
-import { Transaction, listTransactions, topUp } from "../../lib/wallet";
+import { 
+  Transaction, 
+  listTransactions, 
+  createMockOrder, 
+  verifyMockPayment, 
+  MockOrder 
+} from "../../lib/wallet";
 import { useTheme } from "../../theme/ThemeProvider";
 import { elevation, radii, spacing } from "../../theme/tokens";
 import { typography } from "../../theme/typography";
@@ -252,6 +261,10 @@ function TransactionSkeleton({ colors }: { colors: any }) {
   );
 }
 
+// ==========================================
+// NEW TWO-STEP MOCK GATEWAY MODAL
+// ==========================================
+
 function TopUpModal({
   visible,
   onClose,
@@ -265,94 +278,201 @@ function TopUpModal({
   const [amount, setAmount] = useState("100");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Mock Gateway States
+  const [step, setStep] = useState<1 | 2>(1); // 1 = Enter Amount, 2 = Checkout
+  const [order, setOrder] = useState<MockOrder | null>(null);
 
   const presets = [100, 200, 500, 1000];
 
-  async function onSubmit() {
+  async function onCreateOrder() {
     setError(null);
     const value = parseFloat(amount);
     if (isNaN(value) || value < 10) {
       setError("Minimum top up is ₹10");
       return;
     }
+    
     setSubmitting(true);
     try {
-      await topUp(value);
-      setAmount("100");
-      onSuccess();
+      const mockOrder = await createMockOrder(value);
+      setOrder(mockOrder);
+      setStep(2);
     } catch (e: any) {
-      setError(e?.detail || "Top up failed");
+      setError(e?.detail || "Failed to initialize checkout");
     } finally {
       setSubmitting(false);
     }
   }
 
+  async function handleSimulatePayment(success: boolean) {
+    if (!order) return;
+    
+    if (!success) {
+      // Cancel flow: reset and close
+      setStep(1);
+      setOrder(null);
+      setAmount("100");
+      onClose();
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const amountInRupees = order.amount / 100; 
+      await verifyMockPayment(order.id, amountInRupees);
+      
+      // Reset state and trigger success
+      setStep(1);
+      setOrder(null);
+      setAmount("100");
+      onSuccess(); 
+    } catch (e: any) {
+      setError(e?.detail || "Payment verification failed");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function handleClose() {
+    if (submitting) return;
+    setStep(1);
+    setOrder(null);
+    setError(null);
+    onClose();
+  }
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <KeyboardAvoidingView 
         style={styles.modalBackdrop} 
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={[styles.modalSheet, { backgroundColor: colors.bg }]}>
+          
+          {/* Header */}
           <View style={styles.modalHeader}>
             <Text style={[typography.h2, { color: colors.textPrimary }]}>
-              Add money
+              {step === 1 ? "Add money" : "Checkout"}
             </Text>
-            <Pressable onPress={onClose} hitSlop={10}>
+            <Pressable onPress={handleClose} hitSlop={10} disabled={submitting}>
               <X color={colors.textSecondary} size={24} />
             </Pressable>
           </View>
 
-          <View style={styles.amountInputWrap}>
-            <Text style={[typography.display, { color: colors.textPrimary }]}>₹</Text>
-            <TextInput
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="numeric"
-              style={[typography.display, { color: colors.textPrimary, flex: 1, marginLeft: 8 }]}
-              placeholder="0"
-              placeholderTextColor={colors.textMuted}
-              editable={!submitting}
-            />
-          </View>
+          {/* STEP 1: Enter Amount */}
+          {step === 1 && (
+            <>
+              <View style={styles.amountInputWrap}>
+                <Text style={[typography.display, { color: colors.textPrimary }]}>₹</Text>
+                <TextInput
+                  value={amount}
+                  onChangeText={setAmount}
+                  keyboardType="numeric"
+                  style={[typography.display, { color: colors.textPrimary, flex: 1, marginLeft: 8 }]}
+                  placeholder="0"
+                  placeholderTextColor={colors.textMuted}
+                  editable={!submitting}
+                />
+              </View>
 
-          <View style={styles.presetRow}>
-            {presets.map((p) => {
-              const active = amount === String(p);
-              return (
+              <View style={styles.presetRow}>
+                {presets.map((p) => {
+                  const active = amount === String(p);
+                  return (
+                    <Pressable
+                      key={p}
+                      onPress={() => setAmount(String(p))}
+                      style={[
+                        styles.presetChip,
+                        {
+                          borderColor: active ? colors.accent : colors.border,
+                          backgroundColor: active ? colors.accent + "15" : "transparent",
+                        },
+                      ]}
+                    >
+                      <Text style={[typography.bodyMedium, { color: active ? colors.accent : colors.textPrimary }]}>
+                        ₹{p}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {error ? (
+                <Text style={[typography.bodySm, { color: colors.danger, marginTop: spacing.lg, textAlign: "center" }]}>
+                  {error}
+                </Text>
+              ) : null}
+
+              <View style={{ flex: 1 }} />
+
+              <Button
+                label={`Proceed to Pay ₹${amount || 0}`}
+                onPress={onCreateOrder}
+                loading={submitting}
+                size="lg"
+              />
+            </>
+          )}
+
+          {/* STEP 2: Mock Gateway Checkout */}
+          {step === 2 && (
+            <>
+              <View style={{ alignItems: "center", marginBottom: spacing.xl }}>
+                <View style={{ backgroundColor: colors.accent + "22", padding: 16, borderRadius: 40, marginBottom: 16 }}>
+                  <CreditCard color={colors.accent} size={32} />
+                </View>
+                <Text style={[typography.h3, { color: colors.textPrimary }]}>Mock Gateway</Text>
+                <Text style={[typography.body, { color: colors.textSecondary, marginTop: 8 }]}>
+                  SmartFare Test Checkout
+                </Text>
+              </View>
+
+              <View style={[styles.receiptBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+                <Text style={[typography.body, { color: colors.textSecondary }]}>Amount to pay</Text>
+                <Text style={[typography.display, { color: colors.textPrimary, marginTop: 8 }]}>
+                  ₹ {order ? order.amount / 100 : 0}
+                </Text>
+                <Text style={[typography.caption, { color: colors.textMuted, marginTop: 16, textAlign: "center" }]} numberOfLines={1}>
+                  Order ID: {order?.id}
+                </Text>
+              </View>
+
+              {error ? (
+                <Text style={[typography.bodySm, { color: colors.danger, marginTop: spacing.lg, textAlign: "center" }]}>
+                  {error}
+                </Text>
+              ) : null}
+
+              <View style={{ flex: 1 }} />
+
+              <View style={{ gap: spacing.md }}>
                 <Pressable
-                  key={p}
-                  onPress={() => setAmount(String(p))}
-                  style={[
-                    styles.presetChip,
-                    {
-                      borderColor: active ? colors.accent : colors.border,
-                      backgroundColor: active ? colors.accent + "15" : "transparent",
-                    },
-                  ]}
+                  onPress={() => handleSimulatePayment(true)}
+                  disabled={submitting}
+                  style={[styles.actionBtn, { backgroundColor: colors.success }]}
                 >
-                  <Text style={[typography.bodyMedium, { color: active ? colors.accent : colors.textPrimary }]}>
-                    ₹{p}
-                  </Text>
+                  {submitting ? <ActivityIndicator color="#fff" /> : (
+                    <>
+                      <CheckCircle color="#fff" size={20} />
+                      <Text style={{ color: "#fff", fontWeight: "bold", marginLeft: 8, fontSize: 16 }}>Simulate Success</Text>
+                    </>
+                  )}
                 </Pressable>
-              );
-            })}
-          </View>
 
-          {error ? (
-            <Text style={[typography.bodySm, { color: colors.danger, marginTop: spacing.lg, textAlign: "center" }]}>
-              {error}
-            </Text>
-          ) : null}
+                <Pressable
+                  onPress={() => handleSimulatePayment(false)}
+                  disabled={submitting}
+                  style={[styles.actionBtn, { backgroundColor: colors.danger + "15", borderWidth: 1, borderColor: colors.danger }]}
+                >
+                  <XCircle color={colors.danger} size={20} />
+                  <Text style={{ color: colors.danger, fontWeight: "bold", marginLeft: 8, fontSize: 16 }}>Cancel Payment</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
 
-          <View style={{ flex: 1 }} />
-
-          <Button
-            label={`Pay ₹${amount || 0}`}
-            onPress={onSubmit}
-            loading={submitting}
-            size="lg"
-          />
           <SafeAreaView edges={["bottom"]} />
         </View>
       </KeyboardAvoidingView>
@@ -502,5 +622,21 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     alignItems: "center",
+  },
+  
+  // Mock Gateway specific styles
+  receiptBox: { 
+    padding: spacing.xl, 
+    borderRadius: radii.lg, 
+    borderWidth: 1, 
+    alignItems: "center",
+    width: "100%"
+  },
+  actionBtn: { 
+    flexDirection: "row", 
+    padding: spacing.lg, 
+    borderRadius: radii.md, 
+    alignItems: "center", 
+    justifyContent: "center" 
   },
 });
