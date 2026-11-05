@@ -4,13 +4,16 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   Bus,
-  CheckCircle,
+  CheckCircle2,
   Clock,
   CreditCard,
+  Landmark,
+  Lock,
   Plus,
+  ShieldCheck,
+  Smartphone,
   Wallet as WalletIcon,
   X,
-  XCircle,
 } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import {
@@ -78,7 +81,6 @@ export default function WalletScreen() {
     await load();
   }
 
-  // Group transactions by date
   const grouped = groupTransactionsByDate(transactions || []);
 
   return (
@@ -86,11 +88,7 @@ export default function WalletScreen() {
       <ScrollView
         contentContainerStyle={styles.container}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={colors.accent}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />
         }
       >
         <View style={styles.header}>
@@ -262,8 +260,10 @@ function TransactionSkeleton({ colors }: { colors: any }) {
 }
 
 // ==========================================
-// NEW TWO-STEP MOCK GATEWAY MODAL
+// REALISTIC MOCK GATEWAY MODAL
 // ==========================================
+
+type Step = "amount" | "method" | "processing" | "success";
 
 function TopUpModal({
   visible,
@@ -275,94 +275,93 @@ function TopUpModal({
   onSuccess: () => void;
 }) {
   const { colors } = useTheme();
+  const [step, setStep] = useState<Step>("amount");
   const [amount, setAmount] = useState("100");
-  const [submitting, setSubmitting] = useState(false);
+  const [method, setMethod] = useState<"upi" | "card" | "netbanking">("upi");
   const [error, setError] = useState<string | null>(null);
-  
-  // Mock Gateway States
-  const [step, setStep] = useState<1 | 2>(1); // 1 = Enter Amount, 2 = Checkout
   const [order, setOrder] = useState<MockOrder | null>(null);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
 
   const presets = [100, 200, 500, 1000];
 
-  async function onCreateOrder() {
+  async function handleProceedToPay() {
     setError(null);
     const value = parseFloat(amount);
-    if (isNaN(value) || value < 10) {
-      setError("Minimum top up is ₹10");
-      return;
-    }
+    if (isNaN(value) || value < 10) return setError("Minimum top up is ₹10");
     
-    setSubmitting(true);
     try {
       const mockOrder = await createMockOrder(value);
       setOrder(mockOrder);
-      setStep(2);
+      setStep("method");
     } catch (e: any) {
       setError(e?.detail || "Failed to initialize checkout");
-    } finally {
-      setSubmitting(false);
     }
   }
 
-  async function handleSimulatePayment(success: boolean) {
-    if (!order) return;
+  function handleSimulateGateway() {
+    setStep("processing");
     
-    if (!success) {
-      // Cancel flow: reset and close
-      setStep(1);
-      setOrder(null);
-      setAmount("100");
-      onClose();
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const amountInRupees = order.amount / 100; 
-      await verifyMockPayment(order.id, amountInRupees);
-      
-      // Reset state and trigger success
-      setStep(1);
-      setOrder(null);
-      setAmount("100");
-      onSuccess(); 
-    } catch (e: any) {
-      setError(e?.detail || "Payment verification failed");
-    } finally {
-      setSubmitting(false);
-    }
+    // Simulate a 2-second bank processing time
+    setTimeout(async () => {
+      try {
+        const fakePaymentId = `pay_${Math.random().toString(36).substring(2, 16)}`;
+        setPaymentId(fakePaymentId);
+        
+        await verifyMockPayment(order!.id, fakePaymentId, order!.amount / 100);
+        setStep("success");
+      } catch (e: any) {
+        setError(e?.detail || "Payment failed");
+        setStep("method");
+      }
+    }, 2000);
   }
 
   function handleClose() {
-    if (submitting) return;
-    setStep(1);
-    setOrder(null);
-    setError(null);
-    onClose();
+    if (step === "processing") return; // Prevent closing during processing
+    
+    // Reset state
+    setTimeout(() => {
+      setStep("amount");
+      setAmount("100");
+      setOrder(null);
+      setPaymentId(null);
+      setError(null);
+    }, 300);
+    
+    if (step === "success") {
+      onSuccess(); // Trigger wallet refresh
+    } else {
+      onClose();
+    }
   }
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
-      <KeyboardAvoidingView 
-        style={styles.modalBackdrop} 
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
+      <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={[styles.modalSheet, { backgroundColor: colors.bg }]}>
           
           {/* Header */}
           <View style={styles.modalHeader}>
-            <Text style={[typography.h2, { color: colors.textPrimary }]}>
-              {step === 1 ? "Add money" : "Checkout"}
-            </Text>
-            <Pressable onPress={handleClose} hitSlop={10} disabled={submitting}>
-              <X color={colors.textSecondary} size={24} />
-            </Pressable>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Lock color={colors.success} size={16} />
+              <Text style={[typography.caption, { color: colors.success, marginLeft: 6, fontWeight: "bold" }]}>
+                SECURE CHECKOUT
+              </Text>
+            </View>
+            {step !== "processing" && (
+              <Pressable onPress={handleClose} hitSlop={10}>
+                <X color={colors.textSecondary} size={24} />
+              </Pressable>
+            )}
           </View>
 
           {/* STEP 1: Enter Amount */}
-          {step === 1 && (
+          {step === "amount" && (
             <>
+              <Text style={[typography.h2, { color: colors.textPrimary, marginBottom: spacing.xl }]}>
+                Add money to wallet
+              </Text>
+              
               <View style={styles.amountInputWrap}>
                 <Text style={[typography.display, { color: colors.textPrimary }]}>₹</Text>
                 <TextInput
@@ -372,7 +371,6 @@ function TopUpModal({
                   style={[typography.display, { color: colors.textPrimary, flex: 1, marginLeft: 8 }]}
                   placeholder="0"
                   placeholderTextColor={colors.textMuted}
-                  editable={!submitting}
                 />
               </View>
 
@@ -383,13 +381,10 @@ function TopUpModal({
                     <Pressable
                       key={p}
                       onPress={() => setAmount(String(p))}
-                      style={[
-                        styles.presetChip,
-                        {
-                          borderColor: active ? colors.accent : colors.border,
-                          backgroundColor: active ? colors.accent + "15" : "transparent",
-                        },
-                      ]}
+                      style={[styles.presetChip, {
+                        borderColor: active ? colors.accent : colors.border,
+                        backgroundColor: active ? colors.accent + "15" : "transparent",
+                      }]}
                     >
                       <Text style={[typography.bodyMedium, { color: active ? colors.accent : colors.textPrimary }]}>
                         ₹{p}
@@ -399,84 +394,141 @@ function TopUpModal({
                 })}
               </View>
 
-              {error ? (
-                <Text style={[typography.bodySm, { color: colors.danger, marginTop: spacing.lg, textAlign: "center" }]}>
-                  {error}
-                </Text>
-              ) : null}
+              {error && <Text style={[typography.bodySm, { color: colors.danger, marginTop: spacing.lg, textAlign: "center" }]}>{error}</Text>}
 
               <View style={{ flex: 1 }} />
-
-              <Button
-                label={`Proceed to Pay ₹${amount || 0}`}
-                onPress={onCreateOrder}
-                loading={submitting}
-                size="lg"
-              />
+              <Button label="Proceed to Pay" onPress={handleProceedToPay} size="lg" />
             </>
           )}
 
-          {/* STEP 2: Mock Gateway Checkout */}
-          {step === 2 && (
+          {/* STEP 2: Select Payment Method */}
+          {step === "method" && (
             <>
               <View style={{ alignItems: "center", marginBottom: spacing.xl }}>
-                <View style={{ backgroundColor: colors.accent + "22", padding: 16, borderRadius: 40, marginBottom: 16 }}>
-                  <CreditCard color={colors.accent} size={32} />
-                </View>
-                <Text style={[typography.h3, { color: colors.textPrimary }]}>Mock Gateway</Text>
-                <Text style={[typography.body, { color: colors.textSecondary, marginTop: 8 }]}>
-                  SmartFare Test Checkout
+                <Text style={[typography.caption, { color: colors.textSecondary }]}>Paying</Text>
+                <Text style={[typography.display, { color: colors.textPrimary, marginVertical: 8 }]}>
+                  ₹{order ? order.amount / 100 : 0}
                 </Text>
               </View>
 
-              <View style={[styles.receiptBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-                <Text style={[typography.body, { color: colors.textSecondary }]}>Amount to pay</Text>
-                <Text style={[typography.display, { color: colors.textPrimary, marginTop: 8 }]}>
-                  ₹ {order ? order.amount / 100 : 0}
-                </Text>
-                <Text style={[typography.caption, { color: colors.textMuted, marginTop: 16, textAlign: "center" }]} numberOfLines={1}>
-                  Order ID: {order?.id}
-                </Text>
-              </View>
-
-              {error ? (
-                <Text style={[typography.bodySm, { color: colors.danger, marginTop: spacing.lg, textAlign: "center" }]}>
-                  {error}
-                </Text>
-              ) : null}
-
-              <View style={{ flex: 1 }} />
+              <Text style={[typography.h3, { color: colors.textPrimary, marginBottom: spacing.md }]}>
+                Select Payment Method
+              </Text>
 
               <View style={{ gap: spacing.md }}>
-                <Pressable
-                  onPress={() => handleSimulatePayment(true)}
-                  disabled={submitting}
-                  style={[styles.actionBtn, { backgroundColor: colors.success }]}
-                >
-                  {submitting ? <ActivityIndicator color="#fff" /> : (
-                    <>
-                      <CheckCircle color="#fff" size={20} />
-                      <Text style={{ color: "#fff", fontWeight: "bold", marginLeft: 8, fontSize: 16 }}>Simulate Success</Text>
-                    </>
-                  )}
-                </Pressable>
-
-                <Pressable
-                  onPress={() => handleSimulatePayment(false)}
-                  disabled={submitting}
-                  style={[styles.actionBtn, { backgroundColor: colors.danger + "15", borderWidth: 1, borderColor: colors.danger }]}
-                >
-                  <XCircle color={colors.danger} size={20} />
-                  <Text style={{ color: colors.danger, fontWeight: "bold", marginLeft: 8, fontSize: 16 }}>Cancel Payment</Text>
-                </Pressable>
+                <PaymentOption 
+                  icon={<Smartphone color={colors.accent} size={24} />}
+                  title="UPI (GPay, PhonePe)"
+                  subtitle="Instant transfer"
+                  selected={method === "upi"}
+                  onPress={() => setMethod("upi")}
+                />
+                <PaymentOption 
+                  icon={<CreditCard color={colors.accent} size={24} />}
+                  title="Credit / Debit Card"
+                  subtitle="Visa, Mastercard, RuPay"
+                  selected={method === "card"}
+                  onPress={() => setMethod("card")}
+                />
+                <PaymentOption 
+                  icon={<Landmark color={colors.accent} size={24} />}
+                  title="Netbanking"
+                  subtitle="All major banks supported"
+                  selected={method === "netbanking"}
+                  onPress={() => setMethod("netbanking")}
+                />
               </View>
+
+              <View style={{ flex: 1 }} />
+              <Button label={`Pay ₹${order ? order.amount / 100 : 0}`} onPress={handleSimulateGateway} size="lg" />
             </>
+          )}
+
+          {/* STEP 3: Processing */}
+          {step === "processing" && (
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+              <ActivityIndicator size="large" color={colors.accent} />
+              <Text style={[typography.h3, { color: colors.textPrimary, marginTop: spacing.xl }]}>
+                Processing Payment...
+              </Text>
+              <Text style={[typography.body, { color: colors.textSecondary, marginTop: spacing.sm, textAlign: "center" }]}>
+                Please do not press back or close the app.{"\n"}Contacting your bank securely.
+              </Text>
+            </View>
+          )}
+
+          {/* STEP 4: Success Receipt */}
+          {step === "success" && (
+            <View style={{ flex: 1 }}>
+              <View style={{ alignItems: "center", marginTop: spacing.xl }}>
+                <View style={{ backgroundColor: colors.success + "22", padding: 20, borderRadius: 50, marginBottom: 16 }}>
+                  <CheckCircle2 color={colors.success} size={48} />
+                </View>
+                <Text style={[typography.h2, { color: colors.textPrimary }]}>Payment Successful</Text>
+                <Text style={[typography.display, { color: colors.textPrimary, marginTop: spacing.md }]}>
+                  ₹{order ? order.amount / 100 : 0}
+                </Text>
+              </View>
+
+              <View style={[styles.receiptBox, { backgroundColor: colors.surface, borderColor: colors.border, marginTop: spacing.xxl }]}>
+                <View style={styles.receiptRow}>
+                  <Text style={[typography.body, { color: colors.textSecondary }]}>Paid via</Text>
+                  <Text style={[typography.bodyMedium, { color: colors.textPrimary, fontWeight: "bold", textTransform: "uppercase" }]}>{method}</Text>
+                </View>
+                <View style={styles.receiptRow}>
+                  <Text style={[typography.body, { color: colors.textSecondary }]}>Order ID</Text>
+                  <Text style={[typography.caption, { color: colors.textPrimary }]}>{order?.id}</Text>
+                </View>
+                <View style={styles.receiptRow}>
+                  <Text style={[typography.body, { color: colors.textSecondary }]}>Payment ID</Text>
+                  <Text style={[typography.caption, { color: colors.textPrimary }]}>{paymentId}</Text>
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", marginTop: spacing.md }}>
+                  <ShieldCheck color={colors.success} size={14} />
+                  <Text style={[typography.micro, { color: colors.success, marginLeft: 4 }]}>Verified by SmartFare Secure</Text>
+                </View>
+              </View>
+
+              <View style={{ flex: 1 }} />
+              <Button label="Back to Wallet" onPress={handleClose} size="lg" />
+            </View>
           )}
 
           <SafeAreaView edges={["bottom"]} />
         </View>
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+function PaymentOption({ icon, title, subtitle, selected, onPress }: any) {
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={onPress}
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        padding: spacing.lg,
+        borderRadius: radii.md,
+        borderWidth: 1,
+        borderColor: selected ? colors.accent : colors.border,
+        backgroundColor: selected ? colors.accent + "0A" : "transparent",
+      }}
+    >
+      <View style={{ width: 40, alignItems: "center" }}>{icon}</View>
+      <View style={{ flex: 1, marginLeft: spacing.md }}>
+        <Text style={[typography.bodyMedium, { color: colors.textPrimary, fontWeight: "bold" }]}>{title}</Text>
+        <Text style={[typography.caption, { color: colors.textMuted, marginTop: 2 }]}>{subtitle}</Text>
+      </View>
+      <View style={{
+        width: 20, height: 20, borderRadius: 10, borderWidth: 2,
+        borderColor: selected ? colors.accent : colors.textMuted,
+        alignItems: "center", justifyContent: "center"
+      }}>
+        {selected && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent }} />}
+      </View>
+    </Pressable>
   );
 }
 
@@ -599,13 +651,13 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: radii.xxl,
     borderTopRightRadius: radii.xxl,
     padding: spacing.xl,
-    height: "75%",
+    height: "85%",
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: spacing.xxl,
+    marginBottom: spacing.xl,
   },
   amountInputWrap: {
     flexDirection: "row",
@@ -624,19 +676,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   
-  // Mock Gateway specific styles
+  // Receipt styles
   receiptBox: { 
     padding: spacing.xl, 
     borderRadius: radii.lg, 
     borderWidth: 1, 
-    alignItems: "center",
-    width: "100%"
+    gap: spacing.md 
   },
-  actionBtn: { 
+  receiptRow: { 
     flexDirection: "row", 
-    padding: spacing.lg, 
-    borderRadius: radii.md, 
-    alignItems: "center", 
-    justifyContent: "center" 
+    justifyContent: "space-between", 
+    alignItems: "center" 
   },
 });

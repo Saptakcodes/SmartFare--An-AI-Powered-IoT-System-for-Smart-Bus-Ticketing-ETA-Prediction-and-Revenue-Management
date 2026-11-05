@@ -27,7 +27,7 @@ export function topUp(amount: number): Promise<TopUpResponse> {
   });
 }
 
-// --- ADDED MOCK PAYMENT FUNCTIONS ---
+// --- MOCK PAYMENT FUNCTIONS ---
 
 export interface MockOrder {
   id: string;
@@ -44,10 +44,14 @@ export function createMockOrder(amount_in_rupees: number): Promise<MockOrder> {
   });
 }
 
-export function verifyMockPayment(order_id: string, amount_in_rupees: number): Promise<{ status: string, new_balance: number }> {
+export function verifyMockPayment(
+  order_id: string, 
+  payment_id: string, // ADDED
+  amount_in_rupees: number
+): Promise<{ status: string, new_balance: number }> {
   return apiRequest("/mock-payment/verify-payment", {
     method: "POST",
-    body: { order_id, amount: amount_in_rupees },
+    body: { order_id, payment_id, amount: amount_in_rupees }, // UPDATED
     auth: true,
   });
 }
