@@ -34,6 +34,11 @@ from app.schemas.passenger import (
     TransactionListItem,
 )
 
+# Added for ETA Endpoint
+import xgboost as xgb
+import numpy as np
+from math import radians, sin, cos, sqrt, atan2
+from datetime import datetime
 
 router = APIRouter(tags=["passenger"])
 
@@ -648,3 +653,84 @@ async def get_bus_eta(
         }
         
     return {"eta_minutes": minutes, "status": "online"}
+
+@router.get("/routes/{route_id}/journey-eta")
+async def get_journey_eta(
+    route_id: str,
+    from_stop_id: str,
+    to_stop_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Predicts the time it takes to travel from Stop A to Stop B."""
+    
+    # 1. Get coordinates and sequences for both stops
+    stops = (await db.execute(
+        text("""
+            SELECT rs.stop_id, rs.seq, ST_Y(s.geog::geometry) as lat, ST_X(s.geog::geometry) as lon
+            FROM route_stops rs
+            JOIN stops s ON s.stop_id = rs.stop_id
+            WHERE rs.route_id = :route AND rs.stop_id IN (:from_stop, :to_stop)
+        """),
+        {"route": route_id, "from_stop": from_stop_id, "to_stop": to_stop_id}
+    )).all()
+
+    if len(stops) < 2:
+        raise HTTPException(400, "Invalid stops for this route")
+
+    # Separate them (they might be in any order)
+    stop_a = next((s for s in stops if s[0] == from_stop_id), None)
+    stop_b = next((s for s in stops if s[0] == to_stop_id), None)
+
+    if not stop_a or not stop_b:
+         raise HTTPException(400, "One or both stops not found on this route")
+
+    # 2. Haversine distance
+    def haversine_km(lat1, lon1, lat2, lon2):
+        R = 6371
+        dlat = radians(lat2 - lat1)
+        dlon = radians(lon2 - lon1)
+        a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+        return R * 2 * atan2(sqrt(a), sqrt(1 - a))
+
+    distance_km = haversine_km(stop_a[2], stop_a[3], stop_b[2], stop_b[3])
+    stops_remaining = abs(stop_b[1] - stop_a[1])
+
+    # 3. Calculate features (Assume avg speed of 25km/h for city buses)
+    now = datetime.now()
+    hour = now.hour
+    day_of_week = now.isoweekday()
+    is_weekend = 1 if day_of_week >= 6 else 0
+    is_peak = 1 if (8 <= hour <= 10) or (17 <= hour <= 19) else 0
+    speed = 25.0 # Assume average city speed
+    
+    hist_segment = 3.0 * (1.5 if is_peak else 1.0)
+    hist_dwell = 1.0
+
+    # 4. Load model and predict
+    try:
+        model = xgb.Booster()
+        model.load_model("bus_eta_model.json")
+        
+        feature_order = [
+            'hour_of_day', 'day_of_week', 'is_weekend', 'is_peak_hour',
+            'distance_to_target_km', 'stops_remaining', 
+            'historical_segment_time', 'historical_dwell_time', 'current_speed'
+        ]
+        
+        feature_vector = np.array([
+            hour, day_of_week, is_weekend, is_peak,
+            distance_km, stops_remaining, hist_segment, hist_dwell, speed
+        ]).reshape(1, -1)
+
+        dmatrix = xgb.DMatrix(feature_vector, feature_names=feature_order)
+        prediction = model.predict(dmatrix)[0]
+        
+        return {
+            "status": "success",
+            "eta_minutes": round(float(prediction), 1),
+            "distance_km": round(distance_km, 2),
+            "stops_remaining": stops_remaining
+        }
+    except Exception as e:
+        print(f"Model error: {e}")
+        raise HTTPException(500, "ETA Model failed to load")

@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Bell,
   CheckCircle,
+  Clock,
   CreditCard,
   History,
   LogOut,
@@ -14,6 +15,7 @@ import {
   Ticket,
   TrendingUp,
   Wallet as WalletIcon,
+  Zap,
 } from "lucide-react-native";
 import { useEffect, useState, useCallback } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -23,8 +25,10 @@ import { Card } from "../../components/ui/Card";
 import { CountUp } from "../../components/ui/CountUp";
 import { Logo } from "../../components/ui/Logo";
 import { Screen } from "../../components/ui/Screen";
+import { StopPickerModal } from "../../components/ui/StopPickerModal";
 import { useAuth } from "../../contexts/AuthContext";
 import { getActiveJourney, ActiveJourney } from "../../lib/journeys";
+import { Stop, getJourneyETA, JourneyETA } from "../../lib/routes";
 import { useTheme } from "../../theme/ThemeProvider";
 import { elevation, radii, spacing } from "../../theme/tokens";
 import { typography } from "../../theme/typography";
@@ -50,12 +54,20 @@ export default function HomeScreen() {
   const [greeting, setGreeting] = useState(getGreeting());
   const [activeJourney, setActiveJourney] = useState<ActiveJourney | null>(null);
 
+  // ETA States
+  const [showEtaCard, setShowEtaCard] = useState(false);
+  const [source, setSource] = useState<Stop | null>(null);
+  const [dest, setDest] = useState<Stop | null>(null);
+  const [showSource, setShowSource] = useState(false);
+  const [showDest, setShowDest] = useState(false);
+  const [etaResult, setEtaResult] = useState<JourneyETA | null>(null);
+  const [etaLoading, setEtaLoading] = useState(false);
+
   useEffect(() => {
     const id = setInterval(() => setGreeting(getGreeting()), 60000);
     return () => clearInterval(id);
   }, []);
 
-  // Check for active journey every time the screen comes into focus
   useFocusEffect(
     useCallback(() => {
       let isActive = true;
@@ -71,6 +83,19 @@ export default function HomeScreen() {
       return () => { isActive = false; };
     }, [])
   );
+
+  async function calculateETA() {
+    if (!source || !dest) return;
+    setEtaLoading(true);
+    try {
+      const res = await getJourneyETA("R-001", source.stop_id, dest.stop_id);
+      setEtaResult(res);
+    } catch (e: any) {
+      alert(e?.detail || "Failed to get ETA");
+    } finally {
+      setEtaLoading(false);
+    }
+  }
 
   if (!user) return null;
 
@@ -239,6 +264,67 @@ export default function HomeScreen() {
           </LinearGradient>
         </Pressable>
 
+        {/* ETA PREDICTION CARD */}
+        <View style={[styles.etaCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <View style={{ backgroundColor: "#FFB30022", padding: 8, borderRadius: 8 }}>
+                <Zap color="#FFB300" size={20} />
+              </View>
+              <View style={{ marginLeft: 10 }}>
+                <Text style={[typography.h3, { color: colors.textPrimary }]}>Predict Journey Time</Text>
+                <Text style={[typography.caption, { color: colors.textSecondary }]}>Powered by ML (XGBoost)</Text>
+              </View>
+            </View>
+            <Pressable onPress={() => setShowEtaCard(!showEtaCard)}>
+              <Text style={{ color: colors.accent, fontWeight: "bold" }}>{showEtaCard ? "Close" : "Open"}</Text>
+            </Pressable>
+          </View>
+
+          {showEtaCard && (
+            <View style={{ marginTop: spacing.lg }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 12, marginBottom: spacing.md }}>
+                ETA stands for <Text style={{fontWeight: "bold"}}>Estimated Time of Arrival</Text>. Our Machine Learning model predicts travel time based on distance, stops, and real-time traffic patterns.
+              </Text>
+              
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <Pressable onPress={() => setShowSource(true)} style={[styles.etaPicker, { borderColor: colors.border }]}>
+                  <Text style={[typography.caption, { color: colors.textSecondary }]}>From</Text>
+                  <Text style={[typography.bodySm, { color: colors.textPrimary, fontWeight: "bold" }]} numberOfLines={1}>{source ? source.name : "Select"}</Text>
+                </Pressable>
+                <Pressable onPress={() => setShowDest(true)} style={[styles.etaPicker, { borderColor: colors.border }]}>
+                  <Text style={[typography.caption, { color: colors.textSecondary }]}>To</Text>
+                  <Text style={[typography.bodySm, { color: colors.textPrimary, fontWeight: "bold" }]} numberOfLines={1}>{dest ? dest.name : "Select"}</Text>
+                </Pressable>
+              </View>
+
+              <Pressable 
+                onPress={calculateETA}
+                disabled={!source || !dest || etaLoading}
+                style={{ 
+                  backgroundColor: (!source || !dest) ? colors.textMuted : colors.accent, 
+                  padding: spacing.md, borderRadius: radii.md, alignItems: "center", marginTop: spacing.md 
+                }}
+              >
+                <Text style={{ color: "#fff", fontWeight: "bold" }}>
+                  {etaLoading ? "Calculating..." : "Predict Travel Time"}
+                </Text>
+              </Pressable>
+
+              {etaResult && (
+                <View style={{ backgroundColor: colors.success + "15", padding: spacing.md, borderRadius: radii.md, marginTop: spacing.md, alignItems: "center" }}>
+                  <Text style={{ color: colors.success, fontWeight: "bold", fontSize: 24 }}>
+                    {etaResult.eta_minutes} mins
+                  </Text>
+                  <Text style={{ color: colors.success, fontSize: 12 }}>
+                    Distance: {etaResult.distance_km} km | Stops: {etaResult.stops_remaining}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+
         {/* Search bar */}
         <Pressable
           onPress={() => router.push("/search")}
@@ -311,6 +397,11 @@ export default function HomeScreen() {
             </View>
           </View>
         </Card>
+
+        {/* ETA Stop Pickers */}
+        <StopPickerModal visible={showSource} title="Select Origin" onClose={() => setShowSource(false)} onSelect={(s) => { setSource(s); setShowSource(false); setEtaResult(null); }} />
+        <StopPickerModal visible={showDest} title="Select Destination" onClose={() => setShowDest(false)} onSelect={(s) => { setDest(s); setShowDest(false); setEtaResult(null); }} />
+
       </Screen>
     </View>
   );
@@ -339,9 +430,8 @@ const styles = StyleSheet.create({
   statusPill: { flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md, paddingVertical: 6, borderRadius: radii.pill },
   dot: { width: 6, height: 6, borderRadius: 3 },
   
-  // ACTIVE JOURNEY BANNER STYLES
   activeBanner: {
-    backgroundColor: "#2E7D32", // Deep Green
+    backgroundColor: "#2E7D32",
     padding: spacing.xl,
     borderRadius: radii.xl,
     elevation: 5,
@@ -365,4 +455,6 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
     fontSize: 16,
   },
+  etaCard: { marginTop: spacing.xl, borderRadius: radii.xl, padding: spacing.xl, borderWidth: 1 },
+  etaPicker: { flex: 1, borderWidth: 1, padding: spacing.md, borderRadius: radii.md, backgroundColor: "rgba(0,0,0,0.05)" },
 });

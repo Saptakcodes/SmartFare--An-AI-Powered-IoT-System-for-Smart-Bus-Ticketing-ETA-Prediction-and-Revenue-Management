@@ -62,3 +62,15 @@ export function searchRoutes(
 export function getRouteDetail(routeId: string): Promise<RouteDetail> {
   return apiRequest<RouteDetail>(`/routes/${routeId}`);
 }
+
+// ADDED FOR ETA UI
+export interface JourneyETA {
+  status: string;
+  eta_minutes: number;
+  distance_km: number;
+  stops_remaining: number;
+}
+
+export function getJourneyETA(route_id: string, from_stop_id: string, to_stop_id: string): Promise<JourneyETA> {
+  return apiRequest<JourneyETA>(`/routes/${route_id}/journey-eta?from_stop_id=${from_stop_id}&to_stop_id=${to_stop_id}`);
+}
