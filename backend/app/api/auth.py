@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
+from app.schemas.auth import PushTokenRequest
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -322,3 +323,13 @@ async def reset_password(
     return MessageResponse(
         message="Password updated successfully. Please log in again."
     )
+
+@router.post("/push-token")
+async def save_push_token(
+    payload: PushTokenRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+):
+    current.expo_push_token = payload.expo_push_token
+    await db.commit()
+    return {"status": "ok"}

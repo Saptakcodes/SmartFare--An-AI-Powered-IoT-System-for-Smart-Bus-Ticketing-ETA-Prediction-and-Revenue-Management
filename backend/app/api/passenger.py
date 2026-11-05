@@ -8,6 +8,8 @@ from uuid import uuid4
 from app.schemas.passenger import TopUpRequest, TopUpResponse, UpdateCardStatusRequest
 from decimal import Decimal
 
+from app.services.push_service import send_push_notification
+
 from app.services.eta_service import predict_bus_eta
 
 from app.api.deps import get_current_user
@@ -488,6 +490,12 @@ async def update_card_status(
             body="Your card has been successfully blocked. It can no longer be used to board buses.",
             type="warning"
         ))
+        # TRIGGER REAL PUSH NOTIFICATION
+        await send_push_notification(
+            current, 
+            "Card Blocked 🚫", 
+            "Your RFID card has been blocked for security reasons."
+        )
     else:
         db.add(Notification(
             user_id=current.user_id,
@@ -495,6 +503,12 @@ async def update_card_status(
             body="Your card has been reactivated and can be used again.",
             type="info"
         ))
+        # TRIGGER REAL PUSH NOTIFICATION
+        await send_push_notification(
+            current, 
+            "Card Unblocked ✅", 
+            "Your RFID card has been reactivated and is ready to use."
+        )
 
     await db.commit()
     await db.refresh(card)
@@ -503,7 +517,6 @@ async def update_card_status(
         is_blocked=card.is_blocked,
         issued_at=card.issued_at,
     )
-
 
 @router.delete("/rfid/{rfid_id}")
 async def unlink_rfid(

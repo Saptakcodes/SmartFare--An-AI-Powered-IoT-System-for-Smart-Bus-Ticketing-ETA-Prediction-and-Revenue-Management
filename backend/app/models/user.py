@@ -47,3 +47,6 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+
+    expo_push_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    
