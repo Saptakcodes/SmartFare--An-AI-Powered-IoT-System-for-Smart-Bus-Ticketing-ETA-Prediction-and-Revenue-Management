@@ -12,7 +12,6 @@ import {
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert, // <-- ADDED ALERT
   Platform,
   Pressable,
   StyleSheet,
@@ -49,6 +48,7 @@ export default function MapScreen() {
   const [eta, setEta] = useState<number | null>(null);
   const [calculatingEta, setCalculatingEta] = useState(false);
   const [busOffline, setBusOffline] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -79,19 +79,25 @@ export default function MapScreen() {
   }
 
   async function calculateEta() {
+    console.log("1. Predict ETA button clicked!");
+    setErrorMsg(null);
+    setEta(null);
+    setBusOffline(false);
+
     if (!selectedBus || !targetStop) {
-      Alert.alert("Missing Info", "Please ensure a bus and destination are selected.");
+      setErrorMsg("Please ensure a bus and destination are selected.");
       return;
     }
     
-    // FIX: Fallback to R-001 if route_id is missing
+    // Fallback to R-001 if route_id is missing
     const routeId = selectedBus.route_id || "R-001"; 
+    console.log(`2. Fetching ETA for bus=${selectedBus.bus_id}, route=${routeId}, stop=${targetStop.stop_id}`);
     
     setCalculatingEta(true);
-    setBusOffline(false);
     
     try {
       const res = await getBusETA(selectedBus.bus_id, routeId, targetStop.stop_id);
+      console.log("3. Response received:", res);
       
       if (res.status === "offline" || res.eta_minutes === null) {
         setBusOffline(true);
@@ -100,8 +106,8 @@ export default function MapScreen() {
         setEta(res.eta_minutes);
       }
     } catch (e: any) {
-      console.log("ETA Error:", e);
-      Alert.alert("Error", e?.detail || "Failed to calculate ETA. Check if RPi is online.");
+      console.log("4. ETA Error:", e);
+      setErrorMsg(e?.message || e?.detail || "Failed to calculate ETA. Check network.");
     } finally {
       setCalculatingEta(false);
     }
@@ -201,7 +207,7 @@ export default function MapScreen() {
                     <Text style={[typography.micro, { color: colors.textMuted }]}>Predicting ETA</Text>
                   </View>
                 </View>
-                <Pressable onPress={() => { setSelectedBus(null); setEta(null); setTargetStop(null); setBusOffline(false); }}>
+                <Pressable onPress={() => { setSelectedBus(null); setEta(null); setTargetStop(null); setBusOffline(false); setErrorMsg(null); }}>
                   <X color={colors.textMuted} size={20} />
                 </Pressable>
               </View>
@@ -246,6 +252,15 @@ export default function MapScreen() {
                 <View style={{ backgroundColor: colors.danger + "22", padding: spacing.md, borderRadius: radii.md, marginTop: spacing.md, alignItems: "center" }}>
                   <Text style={{ color: colors.danger, fontWeight: "bold", fontSize: 14 }}>
                     ⚠️ Bus is offline. GPS signal lost.
+                  </Text>
+                </View>
+              )}
+
+              {/* Error Message */}
+              {errorMsg && (
+                <View style={{ backgroundColor: colors.danger + "22", padding: spacing.md, borderRadius: radii.md, marginTop: spacing.md, alignItems: "center" }}>
+                  <Text style={{ color: colors.danger, fontWeight: "bold", fontSize: 14, textAlign: "center" }}>
+                    {errorMsg}
                   </Text>
                 </View>
               )}
