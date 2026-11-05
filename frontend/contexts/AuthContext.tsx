@@ -8,6 +8,7 @@
 } from "react";
 
 import * as authApi from "../lib/auth";
+import { registerForPushNotifications } from "../lib/notifications"; // <-- ADDED
 import type { User } from "../lib/types";
 
 interface AuthContextValue {
@@ -40,6 +41,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const has = await authApi.hasTokens();
       if (has) {
         await refreshUser();
+        // Register for push notifications if already logged in
+        await registerForPushNotifications(); 
       }
       setLoading(false);
     })();
@@ -50,6 +53,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const tokens = await authApi.login(email, password);
       await authApi.saveTokens(tokens);
       await refreshUser();
+      // Register for push notifications on fresh login
+      await registerForPushNotifications(); 
     },
     [refreshUser]
   );
