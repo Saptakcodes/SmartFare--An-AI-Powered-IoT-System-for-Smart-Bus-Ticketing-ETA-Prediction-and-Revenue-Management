@@ -12,13 +12,14 @@ import {
   PlusCircle,
   Search,
   Sparkles,
+  Square, // <-- Added for End Journey icon
   Ticket,
   TrendingUp,
   Wallet as WalletIcon,
   Zap,
 } from "lucide-react-native";
 import { useEffect, useState, useCallback } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native"; // <-- Added ActivityIndicator
 
 import { AnimatedBlobs } from "../../components/ui/AnimatedBlobs";
 import { Card } from "../../components/ui/Card";
@@ -27,7 +28,7 @@ import { Logo } from "../../components/ui/Logo";
 import { Screen } from "../../components/ui/Screen";
 import { StopPickerModal } from "../../components/ui/StopPickerModal";
 import { useAuth } from "../../contexts/AuthContext";
-import { getActiveJourney, ActiveJourney } from "../../lib/journeys";
+import { getActiveJourney, ActiveJourney, endActiveJourney } from "../../lib/journeys"; // <-- Added endActiveJourney
 import { Stop, getJourneyETA, JourneyETA } from "../../lib/routes";
 import { useTheme } from "../../theme/ThemeProvider";
 import { elevation, radii, spacing } from "../../theme/tokens";
@@ -63,6 +64,9 @@ export default function HomeScreen() {
   const [etaResult, setEtaResult] = useState<JourneyETA | null>(null);
   const [etaLoading, setEtaLoading] = useState(false);
 
+  // End Journey State
+  const [isEnding, setIsEnding] = useState(false);
+
   useEffect(() => {
     const id = setInterval(() => setGreeting(getGreeting()), 60000);
     return () => clearInterval(id);
@@ -83,6 +87,18 @@ export default function HomeScreen() {
       return () => { isActive = false; };
     }, [])
   );
+
+  async function handleEndJourney() {
+    setIsEnding(true);
+    try {
+      await endActiveJourney();
+      setActiveJourney(null); // Instantly hide the banner
+    } catch (e: any) {
+      alert(e?.detail || "Failed to end journey");
+    } finally {
+      setIsEnding(false);
+    }
+  }
 
   async function calculateETA() {
     if (!source || !dest) return;
@@ -203,6 +219,28 @@ export default function HomeScreen() {
             <Text style={{ color: "#fff", fontSize: 12, textAlign: "center", marginTop: 10, opacity: 0.8 }}>
               Show this screen to the conductor to verify your journey.
             </Text>
+
+            {/* 🛑 END JOURNEY BUTTON */}
+            <Pressable 
+              onPress={handleEndJourney}
+              disabled={isEnding}
+              style={{ 
+                marginTop: 15, 
+                backgroundColor: "rgba(0,0,0,0.3)", 
+                padding: 12, 
+                borderRadius: 8, 
+                flexDirection: "row", 
+                justifyContent: "center", 
+                alignItems: "center" 
+              }}
+            >
+              {isEnding ? <ActivityIndicator color="#fff" /> : (
+                <>
+                  <Square color="#fff" size={16} fill="#fff" />
+                  <Text style={{ color: "#fff", fontWeight: "bold", marginLeft: 8 }}>End Ride / Exit Bus</Text>
+                </>
+              )}
+            </Pressable>
           </View>
         )}
 

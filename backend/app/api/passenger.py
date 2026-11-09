@@ -8,6 +8,9 @@ from uuid import uuid4
 from app.schemas.passenger import TopUpRequest, TopUpResponse, UpdateCardStatusRequest
 from decimal import Decimal
 
+from uuid import uuid4
+from datetime import datetime, timezone, timedelta
+
 from app.services.push_service import send_push_notification
 
 from app.services.eta_service import predict_bus_eta
@@ -317,11 +320,15 @@ async def get_active_journey(
     db: Annotated[AsyncSession, Depends(get_db)],
     current: Annotated[User, Depends(get_current_user)],
 ):
+    #3 hour- journey
+    three_hours_ago = datetime.now(timezone.utc) - timedelta(hours=3)
+    
     journey = await db.scalar(
         select(Journey)
         .where(
             Journey.user_id == current.user_id,
-            Journey.journey_state.in_(["ACTIVE", "POSSIBLE_EXIT"])
+            Journey.journey_state.in_(["ACTIVE", "POSSIBLE_EXIT"]),
+            Journey.started_at >= three_hours_ago # <--- ADDED THIS
         )
         .order_by(Journey.started_at.desc())
     )
@@ -747,3 +754,26 @@ async def get_journey_eta(
     except Exception as e:
         print(f"Model error: {e}")
         raise HTTPException(500, "ETA Model failed to load")
+
+@router.post("/journeys/active/end")
+async def end_active_journey(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current: Annotated[User, Depends(get_current_user)],
+):
+    journey = await db.scalar(
+        select(Journey)
+        .where(
+            Journey.user_id == current.user_id,
+            Journey.journey_state.in_(["ACTIVE", "POSSIBLE_EXIT"])
+        )
+        .order_by(Journey.started_at.desc())
+    )
+    
+    if not journey:
+        raise HTTPException(404, "No active journey found")
+
+    journey.journey_state = "RECONCILED"
+    journey.ended_at = datetime.now(timezone.utc)
+    
+    await db.commit()
+    return {"status": "success", "message": "Journey completed"}

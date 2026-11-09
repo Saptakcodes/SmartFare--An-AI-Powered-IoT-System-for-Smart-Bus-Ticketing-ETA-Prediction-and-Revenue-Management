@@ -36,3 +36,10 @@ export interface ActiveJourney {
 export function getActiveJourney(): Promise<ActiveJourney | null> {
   return apiRequest<ActiveJourney | null>("/journeys/active", { auth: true });
 }
+
+export function endActiveJourney(): Promise<{ status: string; message: string }> {
+  return apiRequest("/journeys/active/end", {
+    method: "POST",
+    auth: true,
+  });
+}
