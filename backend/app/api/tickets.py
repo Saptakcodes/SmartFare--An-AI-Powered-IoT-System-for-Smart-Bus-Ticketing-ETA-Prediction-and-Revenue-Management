@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, get_current_admin
 from app.db.session import get_db
-from app.models import DigitalTicket, User, Fare, Journey, Trip, RFIDCard, Admin, Notification
+from app.models import DigitalTicket, User, Fare, Journey, Trip, RFIDCard, Admin, Notification, Transaction
 from app.schemas.tickets import BuyTicketRequest, TicketResponse, ValidateTicketRequest
 
 router = APIRouter(tags=["tickets"])
@@ -95,6 +95,17 @@ async def buy_ticket(
         expires_at=expires_at
     )
     db.add(ticket)
+
+    # FIX (Bug 5): Log the transaction so it appears in Admin Revenue
+    db.add(Transaction(
+        transaction_id=uuid4(),
+        user_id=user.user_id,
+        amount=-fare_decimal,
+        type="FARE_ENTRY",
+        balance_after=user.balance,
+        notes=f"Digital QR Ticket Purchase"
+    ))
+
     await db.commit()
     await db.refresh(ticket)
 

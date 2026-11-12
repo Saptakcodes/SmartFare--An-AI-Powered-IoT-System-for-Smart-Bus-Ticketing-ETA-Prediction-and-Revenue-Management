@@ -484,6 +484,12 @@ async def update_card_status(
             )
         )
     ).scalar_one_or_none()
+
+    if not payload.is_blocked and current.balance < Decimal("0.00"):
+        raise HTTPException(
+            status_code=400, 
+            detail="You cannot unblock your card while your balance is negative. Please top up."
+        )    
     
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
@@ -516,6 +522,7 @@ async def update_card_status(
             "Card Unblocked ✅", 
             "Your RFID card has been reactivated and is ready to use."
         )
+        
 
     await db.commit()
     await db.refresh(card)
@@ -524,6 +531,7 @@ async def update_card_status(
         is_blocked=card.is_blocked,
         issued_at=card.issued_at,
     )
+
 
 @router.delete("/rfid/{rfid_id}")
 async def unlink_rfid(

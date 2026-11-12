@@ -62,10 +62,19 @@ async def handle_rfid_event(
         return {"status": "UNKNOWN_RFID_OR_BLOCKED"}
 
     stop_id = event.stop_id
+    
+    # FIX (Bug 1): Fetch the Trip to get the actual route_id for geolocation
+    from app.models import Trip
+    trip = None
+    if event.trip_id:
+        trip = (await db.execute(select(Trip).where(Trip.trip_id == event.trip_id))).scalar_one_or_none()
+
     if not stop_id and event.latitude is not None and event.longitude is not None:
-        stop_id = await _nearest_stop(
-            db, event.bus_id and event.trip_id and None or None, event.latitude, event.longitude
-        )
+        if trip:
+            stop_id = await _nearest_stop(
+                db, trip.route_id, event.latitude, event.longitude
+            )
+            
     if stop_id:
         exists = (
             await db.execute(select(Stop.stop_id).where(Stop.stop_id == stop_id))
@@ -87,10 +96,6 @@ async def handle_rfid_event(
 
     # CASE 1 — ENTRY
     if event.event_type == "ENTRY" or journey is None:
-        from app.models import Trip
-        trip = (
-            await db.execute(select(Trip).where(Trip.trip_id == event.trip_id))
-        ).scalar_one_or_none()
         if not trip:
             return {"status": "NO_TRIP"}
 

@@ -70,9 +70,13 @@ async def settle_possible_exit(
         await db.commit()
         return {"status": "NO_ADDITIONAL", "additional": 0.0}
 
+    # FIX (Bug 4): Add with_for_update() to lock the user row and prevent double-charging
     user = (
-        await db.execute(select(User).where(User.user_id == journey.user_id))
+        await db.execute(
+            select(User).where(User.user_id == journey.user_id).with_for_update()
+        )
     ).scalar_one_or_none()
+    
     if not user:
         return {"status": "USER_NOT_FOUND", "additional": 0.0}
 

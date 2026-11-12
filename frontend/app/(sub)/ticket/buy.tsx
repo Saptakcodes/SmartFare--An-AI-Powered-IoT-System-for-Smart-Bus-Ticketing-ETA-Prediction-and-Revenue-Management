@@ -1,4 +1,4 @@
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, MapPin, Ticket as TicketIcon, AlertTriangle, XCircle } from "lucide-react-native";
 import { useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -14,11 +14,14 @@ import { useTheme } from "../../../theme/ThemeProvider";
 import { radii, spacing } from "../../../theme/tokens";
 import { typography } from "../../../theme/typography";
 
-const DEFAULT_ROUTE = "R-001";
-
 export default function BuyTicketScreen() {
   const router = useRouter();
-  const { user, refreshUser } = useAuth(); // Added user
+  
+  // FIX (Bug 9): Get route_id from params, fallback to R-001
+  const { route_id } = useLocalSearchParams();
+  const activeRoute = (route_id as string) || "R-001";
+
+  const { user, refreshUser } = useAuth();
   const { colors } = useTheme();
 
   const [source, setSource] = useState<Stop | null>(null);
@@ -36,7 +39,8 @@ export default function BuyTicketScreen() {
     setError(null);
     setSubmitting(true);
     try {
-      const ticket = await buyTicket(DEFAULT_ROUTE, source.stop_id, dest.stop_id);
+      // Use the dynamic route from params
+      const ticket = await buyTicket(activeRoute, source.stop_id, dest.stop_id);
       await refreshUser(); // update wallet balance
       router.replace({
         pathname: "/ticket/show",
